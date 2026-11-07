@@ -6,6 +6,15 @@ Windows 桌面阅读器。界面为纯 HTML/CSS/JS，运行在 WebView2 中；�
 
 ---
 
+<p align="center">
+  <img src="docs/screenshots/discover.png" width="49%" alt="发现">
+  <img src="docs/screenshots/bookstore.png" width="49%" alt="书城">
+</p>
+<p align="center">
+  <img src="docs/screenshots/shelf.png" width="49%" alt="书架">
+  <img src="docs/screenshots/mine.png" width="49%" alt="我的">
+</p>
+
 ## 功能
 
 | 模块 | 能力 |
@@ -58,7 +67,7 @@ NSIS=/c/Program\ Files\ \(x86\)/NSIS/makensis.exe bash scripts/build-desktop.sh 
 ```
 src/Iread.Desktop/     C# 宿主：窗口 / WebView2 / HostFetch / 规则 worker / mpv 面板 / IPC
 src/Iread.Renderer/    渲染层：index.html + css/ + js/ + assets/
-docs/                  书源写法、插件开发指南、架构说明
+docs/                  书源写法、插件开发指南、架构说明、截图
 scripts/               构建脚本与 NSIS 脚本
 tools/                 调试工具：fixture 测试站、CDP 求值
 LICENSES/              第三方许可全文
