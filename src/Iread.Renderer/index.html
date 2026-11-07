@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- 只允许本地资源；接在线书源时把域名加进 connect-src（见 README）
+     https://plugins.local 是宿主映射出来的用户插件目录（只放行脚本/样式/图片，eval 仍然禁用） -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: blob: http: https: https://plugins.local; media-src 'self' blob: data: http: https: yedu-net:; style-src 'self' 'unsafe-inline' https://plugins.local; script-src 'self' https://plugins.local; font-src 'self' data:; connect-src 'self' blob: data: http: https: yedu-net:">
+<title>iread</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/shelf.css">
+<link rel="stylesheet" href="css/panels.css">
+<link rel="stylesheet" href="css/online.css">
+<link rel="stylesheet" href="css/reader.css">
+<link rel="stylesheet" href="css/videoview.css">
+<link rel="stylesheet" href="css/motion.css">
+<link rel="stylesheet" href="css/kazumi.css">
+<link rel="stylesheet" href="css/plugins.css">
+<script src="js/boot-theme.js"></script>
+<style>
+.storage-notice{ position:fixed; top:54px; left:16px; right:16px; z-index:9994; padding:16px; max-height:calc(100vh - 80px); overflow:auto; background:var(--ink-2); color:var(--fg); border:1px solid var(--lamp-line); border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.35); -webkit-app-region:no-drag; }
+.storage-notice p{ margin:0 0 12px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.storage-notice__actions{ display:flex; flex-wrap:wrap; gap:8px; }
+</style>
+</head>
+<body>
+
+<input type="file" id="fileInput" accept=".txt,.md,.markdown,.epub" multiple hidden>
+<input type="file" id="backupFile" accept=".json,application/json" hidden>
+
+<!-- 存储恢复入口独立于 app 和抽屉；暂停写入时仍可操作。 -->
+<section id="storageNotice" class="storage-notice" aria-label="本机存储状态" hidden>
+  <p id="storageStatus" role="status" aria-live="assertive"></p>
+  <div class="storage-notice__actions">
+    <button class="btn btn--primary" id="btnStorageRetry" type="button">重试存储</button>
+    <button class="btn" id="btnStorageBackup" type="button">导出完整备份</button>
+    <button class="btn" id="btnStorageRestore" type="button">恢复完整备份</button>
+    <button class="btn" id="btnResolveIdb" type="button" hidden>保留数据库版本</button>
+    <button class="btn" id="btnResolveLocal" type="button" hidden>保留旧本地版本</button>
+  </div>
+</section>
+
+<div id="app">
+
+  <nav id="mainNav" class="main-nav" aria-label="主导航" aria-expanded="false">
+    <div class="brand"><span class="brand__name">iRead</span></div>
+    <div class="main-nav__group">
+      <button class="nav__tab" data-view="online" type="button" aria-label="发现" aria-controls="onlineView">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m14.8 9.2-1.7 3.9-3.9 1.7 1.7-3.9z"/></svg>
+        <span class="nav__label">发现</span>
+      </button>
+      <button class="nav__tab" data-view="bookstore" type="button" aria-label="书城" aria-controls="bookstoreView">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5h16M5.5 19.5v-14h4v14M9.5 5.5l4 1.5v12.5M13.5 7l4-1v13.5M17.5 6l2 .8v12.7"/></svg>
+        <span class="nav__label">书城</span>
+      </button>
+      <button class="nav__tab" data-view="shelf" type="button" aria-label="书架" aria-controls="shelfView">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5h10v15l-5-3-5 3z"/></svg>
+        <span class="nav__label">书架</span>
+      </button>
+      <button class="nav__tab" data-view="mine" type="button" aria-label="我的" aria-controls="mineView">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 19c.8-3.2 3.1-5 6.5-5s5.7 1.8 6.5 5"/></svg>
+        <span class="nav__label">我的</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ============ 书架 ============ -->
+  <section id="shelfView" class="view hidden">
+    <header class="topbar">
+      <div class="topbar__inner" data-win-drag="1">
+        <div class="topbar__actions">
+          <button class="btn btn--primary" id="btnImport">
+            <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2v9.6M3.2 8h9.6"/></svg>
+            <span>导入书籍</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="shelf">
+      <div class="shelf__inner">
+        <div id="continueCard"></div>
+
+        <div class="shelf__head" id="shelfHead" hidden>
+          <h2 class="shelf__title">书架</h2>
+          <span class="shelf__count" id="shelfCount"></span>
+        </div>
+
+        <div class="shelf__list" id="shelfGrid"></div>
+
+        <div class="empty" id="emptyState" hidden>
+          <span class="empty__mark" aria-hidden="true"></span>
+          <p class="empty__title">书架是空的</p>
+          <button class="btn btn--primary empty__btn" id="btnImportEmpty">选择文件</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bookd hidden" id="bookDetail">
+      <div class="bookd__inner" id="bookdBody"></div>
+      <!-- 插件插槽：详情页底部（#bookdBody 每次渲染会被重写，故运行期由 plugins.js 重新挂回容器内部） -->
+      <div class="plg-slot plg-slot--detail" data-plg-slot="detail.bottom"></div>
+    </div>
+  </section>
+
+  <!-- ============ 发现（在线阅读 / 热门） ============ -->
+  <section id="onlineView" class="view">
+    <header class="topbar">
+      <div class="topbar__inner" data-win-drag="1">
+        <h1>发现</h1>
+      </div>
+    </header>
+
+    <div class="online" id="onlineScroll">
+      <div class="online__inner">
+
+        <!-- 插件插槽：发现页顶部 -->
+        <div class="plg-slot" data-plg-slot="discover.top"></div>
+
+        <form class="search" id="searchForm" autocomplete="off">
+          <svg class="search__icon" viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="7.2" cy="7.2" r="4.4"/><path d="M10.6 10.6L14 14"/>
+          </svg>
+          <input class="search__input" id="searchInput" type="text" placeholder="搜书名、作者" spellcheck="false">
+          <button class="btn btn--primary search__btn" id="btnSearch" type="submit">搜索</button>
+        </form>
+
+        <div class="online__bar" id="onlineBar" hidden></div>
+        <div class="online__body" id="onlineBody"></div>
+
+        <!-- 插件插槽：发现页底部 -->
+        <div class="plg-slot" data-plg-slot="discover.bottom"></div>
+
+      </div>
+    </div>
+  </section>
+
+  <section id="bookstoreView" class="view hidden" aria-label="书城">
+    <header class="topbar">
+      <div class="topbar__inner" data-win-drag="1">
+        <h1>书城</h1>
+      </div>
+    </header>
+    <div class="online" id="bookstoreScroll">
+      <div class="online__inner bookstore-layout">
+        <aside class="bookstore-rail" id="bookstoreRail" aria-label="书城书源与分类">
+          <!-- 第一行就是书源名（用户手绘稿）：栏内没有搜索框，选中源的内联分类由 bookstore.js 挂在它下面 -->
+          <div class="bsrc">
+            <div class="src-filter bookstore-sources bsrc__list" id="bookstoreSources" aria-label="发现书源"></div>
+          </div>
+          <!-- 静态分类锚点：tools/test-bookstore.js:732/769/917 仍要查它，且源行整体重建会连带清掉行内副本，
+               所以同一份分类数据渲染两处——锚点常驻 rail 且恒 hidden，可见的那份在选中行的 .bsrc__panel 里 -->
+          <div class="src-filter bookstore-categories" id="bookstoreCategories" aria-label="发现分类" hidden></div>
+        </aside>
+        <div class="bookstore-main" id="bookstoreMain">
+          <!-- 右栏顶部：横贯内容区的搜索框，行为是「在当前书源里搜」（逻辑由 bookstore.js 接） -->
+          <div class="bsearch" role="search">
+            <input class="bsearch__input" id="bookstoreSearch" type="search" placeholder="在当前书源里搜索"
+              aria-label="在当前书源里搜索" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="online__bar" id="bookstoreBar" hidden></div>
+          <!-- 插件插槽：书城顶部 -->
+          <div class="plg-slot" data-plg-slot="bookstore.top"></div>
+          <div class="online__body" id="bookstoreBody"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section id="mineView" class="view hidden" aria-label="我的">
+    <header class="topbar"><div class="topbar__inner"><h1>我的</h1></div></header>
+    <div class="mine-scroll">
+      <!-- 列表态：阅读统计 + 两组设置入口（点行进入下面的详情子页，不再弹右侧抽屉） -->
+      <div class="mine-list" id="mineList">
+        <section id="readingStats" class="reading-stats" aria-label="阅读统计">
+          <div class="reading-stat"><span>我读过</span><strong>-- <small>本</small></strong><small>去重书籍</small></div>
+          <div class="reading-stat"><span>阅读时长</span><strong>-- <small>小时</small></strong><small>前台有效阅读</small></div>
+        </section>
+        <!-- 插件插槽：「我的」顶部（插件可在此渲染自己的卡片） -->
+        <div class="plg-slot" data-plg-slot="mine.top"></div>
+        <section class="mine-group" aria-label="内容与偏好">
+          <h3 class="mine-group__title">内容与偏好</h3>
+          <div class="mine-group__cards">
+        <button class="mine-row" data-mine-pane="read" type="button">
+          <span class="mine-row__icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.6c1.9-.7 3.6-.7 5.6.2v10.6c-2-.9-3.7-.9-5.6-.2z"/><path d="M17 4.6c-1.9-.7-3.6-.7-5.6.2v10.6c2-.9 3.7-.9 5.6-.2z"/></svg></span>
+          <span class="mine-row__text">阅读设置</span>
+          <span class="mine-row__chev" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l5 5-5 5"/></svg></span>
+        </button>
+        <button class="mine-row" data-mine-pane="look" type="button">
+          <span class="mine-row__icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.4"/><path d="M10 3.6a6.4 6.4 0 0 0 0 12.8z" fill="currentColor" stroke="none"/></svg></span>
+          <span class="mine-row__text">外观设置</span>
+          <span class="mine-row__chev" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l5 5-5 5"/></svg></span>
+        </button>
+        <button class="mine-row" data-mine-pane="shelf" type="button">
+          <span class="mine-row__icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.4h4.2v11H4z"/><path d="M10.2 4.2h4.2v12.2h-4.2z"/><path d="M15.6 6.6l1.8 10.2"/></svg></span>
+          <span class="mine-row__text">书架设置</span>
+          <span class="mine-row__chev" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l5 5-5 5"/></svg></span>
+        </button>
+        <button class="mine-row" data-mine-pane="search" type="button">
+          <span class="mine-row__icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="5.2"/><path d="M13 13l3.6 3.6"/></svg></span>
+          <span class="mine-row__text">搜索设置</span>
+          <span class="mine-row__chev" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l5 5-5 5"/></svg></span>
+        </button>
+        <button class="mine-row" data-mine-pane="behavior" type="button">
+          <span class="mine-row__icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.4h6.5"/><path d="M14.5 6.4H17"/><circle cx="12.4" cy="6.4" r="1.9"/><path d="M4 13.6h3.2"/><path d="M11.2 13.6H17"/><circle cx="9.2" cy="13.6" r="1.9"/></svg></span>
+          <span class="mine-row__text">行为设置</span>
+          <span class="mine-row__chev" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l5 5-5 5"/></svg></span>
+        </button>
+        <button class="mine-row" id="mineSources" data-mine-pane="sources" type="button">
+          <span class="mine-row__icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="10" cy="5.4" rx="5.6" ry="2.2"/><path d="M4.4 5.4v9.2c0 1.2 2.5 2.2 5.6 2.2s5.6-1 5.6-2.2V5.4"/><path d="M4.4 10c0 1.2 2.5 2.2 5.6 2.2s5.6-1 5.6-2.2"/></svg></span>
+          <span class="mine-row__text">书源管理</span>
+          <span class="mine-row__chev" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l5 5-5 5"/></svg></span>
+        </button>
+          </div>
+        </section>
+        <section class="mine-group" aria-label="数据与应用">
+          <h3 class="mine-group__title">数据与应用</h3>
+          <div class="mine-group__cards">
+        <button class="mine-row" data-mine-pane="data" type="button">
+          <span class="mine-row__icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4.4" width="12" height="4" rx="1.4"/><rect x="4" y="11.6" width="12" height="4" rx="1.4"/><path d="M7 8.4v3.2"/></svg></span>
+          <span class="mine-row__text">数据与备份</span>
+          <span class="mine-row__chev" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l5 5-5 5"/></svg></span>
+        </button>
+        <button class="mine-row" data-mine-pane="plugins" type="button">
+          <span class="mine-row__icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.4v2.6M13 3.4v2.6"/><rect x="4.4" y="6" width="11.2" height="6.2" rx="2.2"/><path d="M10 12.2v2.6"/><path d="M7.4 16.6h5.2"/></svg></span>
+          <span class="mine-row__text">插件</span>
+          <span class="mine-row__chev" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l5 5-5 5"/></svg></span>
+        </button>
+        <button class="mine-row" data-mine-pane="about" type="button">
+          <span class="mine-row__icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.4"/><path d="M10 9v5"/><circle cx="10" cy="6.9" r=".9" fill="currentColor" stroke="none"/></svg></span>
+          <span class="mine-row__text">关于 iread</span>
+          <span class="mine-row__chev" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l5 5-5 5"/></svg></span>
+        </button>
+          </div>
+        </section>
+        <!-- 插件插槽：「我的」底部 -->
+        <div class="plg-slot" data-plg-slot="mine.bottom"></div>
+      </div>
+      <!-- 详情态：app.js 把 #setBody 整块搬进 #mineDetailBody 渲染 -->
+      <div class="mine-detail hidden" id="mineDetail">
+        <header class="mine-detail__head">
+          <button class="btn btn--ghost" id="mineBack" type="button">
+            <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.8 3.4L5.2 8l4.6 4.6"/></svg>
+            <span>返回</span>
+          </button>
+          <h2 class="mine-detail__title" id="mineDetailTitle">阅读设置</h2>
+        </header>
+        <div class="mine-detail__body" id="mineDetailBody"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 阅读 ============ -->
+  <section id="readView" class="view hidden">
+    <div class="read-glow" aria-hidden="true"></div>
+
+    <header class="reader-top" id="readTopbar">
+      <button class="btn btn--ghost" id="btnBack" title="返回 (Esc)">
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.8 3.4L5.2 8l4.6 4.6"/></svg>
+        <span>返回</span>
+      </button>
+      <div class="reader-title" id="readTitle" data-win-drag="1">—</div>
+      <div class="topbar__actions">
+        <button class="btn btn--ghost" id="btnAddCur" title="加入书架" hidden>加入书架</button>
+        <button class="btn btn--ghost" id="btnCurSrc" title="当前书源" hidden>当前源</button>
+        <button class="btn btn--ghost" id="btnSwitchSrc" title="换一个书源" hidden>换源</button>
+        <button class="btn btn--ghost" id="btnToc" title="目录 (T)">目录</button>
+        <button class="btn btn--ghost btn--icon" id="btnSetRead" title="阅读设置">⚙</button>
+      </div>
+      <div class="ch-progress" id="chProg" aria-hidden="true"><i></i></div>
+    </header>
+
+    <!-- 插件插槽：阅读页顶部 -->
+    <div class="plg-slot plg-slot--reader" data-plg-slot="reader.top"></div>
+
+    <!-- 滚动模式 -->
+    <div class="reader-scroll" id="scrollWrap">
+      <article class="content" id="content"></article>
+      <div class="chapter-nav" id="chapterNav">
+        <button class="btn" id="btnPrevCh">上一章</button>
+        <button class="btn btn--primary" id="btnNextCh">下一章</button>
+      </div>
+      <div class="tail-space"></div>
+    </div>
+
+    <!-- 翻页模式 -->
+    <div class="reader-page hidden" id="pageWrap">
+      <div class="page-viewport" id="pageViewport">
+        <div class="page-inner" id="pageInner"></div>
+      </div>
+      <div class="page-hit left" id="hitLeft"></div>
+      <div class="page-hit right" id="hitRight"></div>
+    </div>
+
+    <footer class="reader-bottom" id="readBottombar">
+      <div class="bb-left" id="bbChapter">—</div>
+      <div class="bb-bar">
+        <input type="range" id="bbRange" min="0" max="1000" value="0" step="1">
+        <span class="bb-pct" id="bbPct">0%</span>
+      </div>
+      <div class="bb-right" id="bbPage"></div>
+      <button class="btn btn--ghost btn--icon bb-set" id="btnReadSetM" title="阅读设置" hidden>⚙</button>
+    </footer>
+
+    <!-- 手机端：阅读设置底部抽屉（只挂手机段样式，桌面不显示） -->
+    <div class="rsheet" id="readSetSheet" hidden>
+      <div class="rsheet__mask" id="rsheetMask"></div>
+      <div class="rsheet__panel" role="dialog" aria-label="阅读设置">
+        <div class="rsheet__grip"></div>
+        <header class="rsheet__head">
+          <span class="rsheet__title">阅读设置</span>
+          <button class="btn btn--icon" id="rsheetClose" type="button" title="关闭">
+            <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 4.4l7.2 7.2M11.6 4.4l-7.2 7.2"/></svg>
+          </button>
+        </header>
+        <div class="rsheet__body">
+          <section class="rsheet__sec">
+            <h3 class="rsheet__sec-title">排版</h3>
+            <div class="rsheet__row">
+              <span class="rsheet__label">字号</span>
+              <span class="rsheet__stepper">
+                <button type="button" id="rsFontMinus" aria-label="减小字号">−</button>
+                <b id="rsFontVal">19</b>
+                <button type="button" id="rsFontPlus" aria-label="增大字号">＋</button>
+              </span>
+            </div>
+            <div class="rsheet__row">
+              <span class="rsheet__label">字体</span>
+              <span class="rsheet__caps" id="rsFontCaps">
+                <button type="button" data-font="serif">宋体</button>
+                <button type="button" data-font="sans">黑体</button>
+                <button type="button" data-font="kai">楷体</button>
+                <button type="button" data-font="hei2">圆黑</button>
+              </span>
+            </div>
+            <div class="rsheet__row">
+              <span class="rsheet__label">行距</span>
+              <span class="rsheet__caps" id="rsLineCaps">
+                <button type="button" data-val="170">紧凑</button>
+                <button type="button" data-val="200">标准</button>
+                <button type="button" data-val="230">宽松</button>
+              </span>
+            </div>
+            <div class="rsheet__row">
+              <span class="rsheet__label">留白</span>
+              <span class="rsheet__caps" id="rsPadCaps">
+                <button type="button" data-val="10">窄</button>
+                <button type="button" data-val="18">中</button>
+                <button type="button" data-val="28">宽</button>
+              </span>
+            </div>
+            <div class="rsheet__row">
+              <span class="rsheet__label">段距</span>
+              <span class="rsheet__caps" id="rsParaCaps">
+                <button type="button" data-val="60">紧凑</button>
+                <button type="button" data-val="90">标准</button>
+                <button type="button" data-val="130">宽</button>
+              </span>
+            </div>
+          </section>
+          <section class="rsheet__sec">
+            <h3 class="rsheet__sec-title">翻页</h3>
+            <div class="rsheet__row">
+              <span class="rsheet__label">模式</span>
+              <span class="rsheet__caps" id="rsModeCaps">
+                <button type="button" data-mode="scroll" data-tap="0">滚动</button>
+                <button type="button" data-mode="scroll" data-tap="1">上下</button>
+                <button type="button" data-mode="page" data-tap="0">左右</button>
+                <button type="button" data-mode="page" data-tap="1">点按</button>
+              </span>
+            </div>
+            <div class="rsheet__row">
+              <span class="rsheet__label">自动滚动</span>
+              <span class="rsheet__stepper">
+                <label class="rsheet__switch"><input type="checkbox" id="rsAutoScroll"><span></span></label>
+              </span>
+            </div>
+            <div class="rsheet__row" id="rsSpeedRow">
+              <span class="rsheet__label">速度</span>
+              <span class="rsheet__stepper">
+                <button type="button" id="rsSpeedMinus" aria-label="减速">−</button>
+                <b id="rsSpeedVal">1</b>
+                <button type="button" id="rsSpeedPlus" aria-label="加速">＋</button>
+              </span>
+            </div>
+          </section>
+          <section class="rsheet__sec">
+            <h3 class="rsheet__sec-title">主题</h3>
+            <div class="rsheet__themes" id="rsThemes"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- 插件插槽：阅读页底部 -->
+    <div class="plg-slot plg-slot--reader" data-plg-slot="reader.bottom"></div>
+
+    <button class="fab" id="fabToc" title="目录 (T)" aria-label="目录">
+      <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M2.6 4.4h10.8M2.6 8h10.8M2.6 11.6h10.8"/>
+      </svg>
+    </button>
+  </section>
+
+  <!-- 亮度遮罩 -->
+  <div id="dimmer"></div>
+  <!-- 右键菜单 -->
+  <div class="ctx" id="ctxMenu" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</div>
+
+<!-- ============ 自绘窗口按钮（桌面端） ============ -->
+<div class="win-ctrl" id="winCtrl">
+  <button class="wc wc-close" id="wcClose" title="关闭"><i></i></button>
+  <button class="wc wc-min" id="wcMin" title="最小化"><i></i></button>
+  <button class="wc wc-max" id="wcMax" title="最大化"><i></i></button>
+</div>
+
+<!-- ============ 窗口缩放热区 ============ -->
+<div class="win-resize" id="winResize">
+  <div class="rz rz-n"  data-dir="n"></div>
+  <div class="rz rz-s"  data-dir="s"></div>
+  <div class="rz rz-w"  data-dir="w"></div>
+  <div class="rz rz-e"  data-dir="e"></div>
+  <div class="rz rz-nw" data-dir="nw"></div>
+  <div class="rz rz-ne" data-dir="ne"></div>
+  <div class="rz rz-sw" data-dir="sw"></div>
+  <div class="rz rz-se" data-dir="se"></div>
+</div>
+
+<!-- ============ 目录抽屉 ============ -->
+<div class="drawer" id="tocDrawer">
+  <div class="drawer__mask" data-close="toc"></div>
+  <aside class="drawer__panel">
+    <header class="drawer__head">
+      <span class="drawer__title">目录</span>
+      <span class="drawer__sub" id="tocCount"></span>
+      <button class="btn btn--tiny" id="btnTocSwitch" title="换一个书源" hidden>换源</button>
+      <button class="btn btn--icon" data-close="toc" title="关闭">
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 4.4l7.2 7.2M11.6 4.4l-7.2 7.2"/></svg>
+      </button>
+    </header>
+    <div class="drawer__search">
+      <input type="text" id="tocSearch" placeholder="搜索章节" autocomplete="off">
+    </div>
+    <div class="toc" id="tocList"></div>
+  </aside>
+</div>
+
+<!-- ============ 设置抽屉 ============ -->
+<div class="drawer drawer--right drawer--set" id="setDrawer">
+  <div class="drawer__mask" data-close="set"></div>
+  <aside class="drawer__panel">
+    <header class="drawer__head set-head">
+      <span class="drawer__title">设置</span>
+      <span class="set-head__crumb" id="setPaneTitle">阅读</span>
+      <button class="btn btn--icon" data-close="set" title="关闭">
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 4.4l7.2 7.2M11.6 4.4l-7.2 7.2"/></svg>
+      </button>
+    </header>
+
+    <div class="set-main">
+      <nav class="set-nav" id="setNav">
+        <button class="set-nav__item on" data-pane="read" type="button">阅读</button>
+        <button class="set-nav__item" data-pane="look" type="button">外观</button>
+        <button class="set-nav__item" data-pane="shelf" type="button">书架</button>
+        <button class="set-nav__item" data-pane="search" type="button">搜索</button>
+        <button class="set-nav__item" data-pane="behavior" type="button">行为</button>
+        <button class="set-nav__item" data-pane="data" type="button">数据</button>
+        <button class="set-nav__item" data-pane="about" type="button">关于</button>
+      </nav>
+
+      <div class="set-body" id="setBody">
+
+        <!-- ---------- 阅读 ---------- -->
+        <section class="pane on" data-pane="read">
+          <h2 class="pane__title">阅读</h2>
+          <p class="pane__sub">字体、行距与页边距，改完立刻在正文里生效。</p>
+
+          <div class="card">
+            <div class="card__head"><span>正文</span><em>排版尺度</em></div>
+
+            <div class="fld fld--stack">
+              <div class="fld__top">
+                <span class="fld__label">字号</span>
+                <span class="fld__stepper">
+                  <button class="step" data-step="fontSize" data-delta="-1" type="button" aria-label="减小字号">−</button>
+                  <span class="fld__val"><b id="vFont">18</b> px</span>
+                  <button class="step" data-step="fontSize" data-delta="1" type="button" aria-label="增大字号">＋</button>
+                </span>
+              </div>
+              <input type="range" id="sFont" min="14" max="34" step="1">
+            </div>
+
+            <div class="fld fld--stack">
+              <div class="fld__top">
+                <span class="fld__label">每行字数</span>
+                <span class="fld__val"><b id="vWidth">32</b> 字</span>
+              </div>
+              <input type="range" id="sWidth" min="16" max="52" step="1">
+              <div class="fld__ends"><span>窄</span><span>宽</span></div>
+            </div>
+
+            <div class="fld fld--stack">
+              <div class="fld__top">
+                <span class="fld__label">行高</span>
+                <span class="fld__val"><b id="vLine">1.90</b> 倍</span>
+              </div>
+              <input type="range" id="sLine" min="140" max="260" step="5">
+              <div class="fld__ends"><span>紧</span><span>松</span></div>
+            </div>
+
+            <div class="fld fld--stack">
+              <div class="fld__top">
+                <span class="fld__label">段间距</span>
+                <span class="fld__val"><b id="vPara">1.00</b> em</span>
+              </div>
+              <input type="range" id="sPara" min="20" max="200" step="10">
+              <div class="fld__ends"><span>紧</span><span>松</span></div>
+            </div>
+
+            <div class="fld fld--stack">
+              <div class="fld__top">
+                <span class="fld__label">页边距</span>
+                <span class="fld__val"><b id="vPad">36</b> px</span>
+              </div>
+              <input type="range" id="sPad" min="0" max="64" step="4">
+              <div class="fld__ends"><span>贴边</span><span>留白</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__head"><span>字形</span><em>字体与修饰</em></div>
+
+            <div class="fld fld--chips">
+              <span class="fld__label">字体</span>
+              <div class="chips chips--font" id="fontChips">
+                <button class="chip" data-font="serif">宋体</button>
+                <button class="chip" data-font="sans">黑体</button>
+                <button class="chip" data-font="kai">楷体</button>
+                <button class="chip" data-font="hei2">圆黑</button>
+              </div>
+            </div>
+
+            <div class="fld fld--chips">
+              <span class="fld__label">首行缩进</span>
+              <div class="chips" id="indentChips">
+                <button class="chip" data-indent="0">无</button>
+                <button class="chip" data-indent="1">1 字</button>
+                <button class="chip" data-indent="2">2 字</button>
+              </div>
+            </div>
+
+            <div class="fld fld--chips">
+              <span class="fld__label">字距</span>
+              <div class="chips" id="letterChips">
+                <button class="chip" data-letter="0">标准</button>
+                <button class="chip" data-letter="0.02">宽</button>
+                <button class="chip" data-letter="0.05">更宽</button>
+              </div>
+            </div>
+
+            <div class="fld fld--chips">
+              <span class="fld__label">字重</span>
+              <div class="chips" id="weightChips">
+                <button class="chip" data-weight="400">常规</button>
+                <button class="chip" data-weight="500">加粗</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__head"><span>翻页</span><em>模式与暗度</em></div>
+
+            <div class="fld fld--chips">
+              <span class="fld__label">阅读模式</span>
+              <div class="chips" id="modeChips">
+                <button class="chip" data-mode="scroll">滚动</button>
+                <button class="chip" data-mode="page">翻页</button>
+              </div>
+            </div>
+
+            <div class="fld fld--chips">
+              <span class="fld__label">翻页动画</span>
+              <div class="chips" id="animChips">
+                <button class="chip" data-anim="fade">淡入</button>
+                <button class="chip" data-anim="slide">滑动</button>
+                <button class="chip" data-anim="none">无</button>
+              </div>
+            </div>
+
+            <div class="fld fld--stack">
+              <div class="fld__top">
+                <span class="fld__label">暗度</span>
+                <span class="fld__val"><b id="vBright">0</b> %</span>
+              </div>
+              <input type="range" id="sBright" min="0" max="70" step="1">
+              <div class="fld__ends"><span>原色</span><span>最暗</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__head"><span>阅读行为</span></div>
+            <label class="switch"><input type="checkbox" id="sContinuous"><span>连续滚动（所有章节连成长文）</span></label>
+            <label class="switch"><input type="checkbox" id="sAutoResume"><span>启动时回到上次阅读</span></label>
+            <label class="switch"><input type="checkbox" id="sKeepAwake"><span>阅读时保持屏幕常亮</span></label>
+            <label class="switch"><input type="checkbox" id="sTapTurn"><span>点击左右两侧翻页</span></label>
+          </div>
+
+          <div class="card">
+            <div class="card__head"><span>视频</span><em>只影响播放页</em></div>
+            <label class="switch"><input type="checkbox" id="sVideoSharpen"><span>画面锐化（+20%）</span></label>
+            <label class="switch"><input type="checkbox" id="sAdSkip"><span>自动跳过片头广告</span></label>
+          </div>
+        </section>
+
+        <!-- ---------- 外观 ---------- -->
+        <section class="pane" data-pane="look">
+          <h2 class="pane__title">外观</h2>
+          <p class="pane__sub">整窗配色与过渡动效，阅读区会跟着一起变。</p>
+
+          <div class="card">
+            <div class="card__head"><span>界面主题</span><em>按钮与统计随主题</em></div>
+            <div class="swatches" id="uiThemeChips"></div>
+          </div>
+
+          <div class="card">
+            <div class="card__head"><span>动效</span></div>
+            <label class="switch"><input type="checkbox" id="sMotion"><span>界面动效</span></label>
+          </div>
+        </section>
+
+        <!-- ---------- 书架 ---------- -->
+        <section class="pane" data-pane="shelf">
+          <h2 class="pane__title">书架</h2>
+          <p class="pane__sub">书籍怎么排、一次看几本。</p>
+
+          <div class="card">
+            <div class="card__head"><span>排列</span></div>
+
+            <div class="fld fld--chips">
+              <span class="fld__label">排序</span>
+              <div class="chips" id="sortChips">
+                <button class="chip" data-sort="recent">最近阅读</button>
+                <button class="chip" data-sort="added">添加时间</button>
+                <button class="chip" data-sort="title">书名</button>
+              </div>
+            </div>
+
+            <div class="fld fld--chips">
+              <span class="fld__label">布局</span>
+              <div class="chips chips--layout" id="layoutChips">
+                <button class="chip" data-layout="single">单列</button>
+                <button class="chip" data-layout="double">双列</button>
+                <button class="chip" data-layout="grid">网格</button>
+              </div>
+            </div>
+
+            <label class="switch"><input type="checkbox" id="sShowCover"><span>显示封面</span></label>
+          </div>
+        </section>
+
+        <!-- ---------- 搜索 ---------- -->
+        <section class="pane" data-pane="search">
+          <h2 class="pane__title">搜索</h2>
+          <p class="pane__sub">越大的超时和并发越好用，但对网络和机器更挑；太慢的源会被判失效。</p>
+
+          <div class="card">
+            <div class="card__head"><span>请求</span></div>
+
+            <div class="fld fld--chips">
+              <span class="fld__label">单源超时</span>
+              <div class="chips" id="timeoutChips">
+                <button class="chip" data-timeout="3000">3 秒</button>
+                <button class="chip" data-timeout="5000">5 秒</button>
+                <button class="chip" data-timeout="8000">8 秒</button>
+              </div>
+            </div>
+
+            <div class="fld fld--chips">
+              <span class="fld__label">并发</span>
+              <div class="chips" id="concChips">
+                <button class="chip" data-conc="8">8</button>
+                <button class="chip" data-conc="12">12</button>
+                <button class="chip" data-conc="16">16</button>
+              </div>
+            </div>
+
+            <div class="fld fld--chips">
+              <span class="fld__label">结果上限</span>
+              <div class="chips" id="limitChips">
+                <button class="chip" data-limit="50">50</button>
+                <button class="chip" data-limit="100">100</button>
+                <button class="chip" data-limit="0">全部</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__head"><span>清理</span></div>
+            <label class="switch"><input type="checkbox" id="sAutoPurge"><span>自动清理失效书源</span></label>
+          </div>
+        </section>
+
+        <!-- ---------- 行为 ---------- -->
+        <section class="pane" data-pane="behavior">
+          <h2 class="pane__title">行为</h2>
+          <p class="pane__sub">开机与关窗时的动作，默认都是关的。</p>
+
+          <div class="card">
+            <div class="card__head"><span>系统</span></div>
+            <label class="switch"><input type="checkbox" id="sStartLogin"><span>开机自动启动</span></label>
+            <label class="switch"><input type="checkbox" id="sTray"><span>关闭窗口时隐藏到托盘</span></label>
+          </div>
+        </section>
+
+        <!-- ---------- 数据 ---------- -->
+        <section class="pane" data-pane="data">
+          <h2 class="pane__title">数据</h2>
+          <p class="pane__sub">完整 JSON 备份包含书架、进度、书源、设置和章节缓存。恢复会先保存当前数据备份，再替换数据；请选择不超过 128 MiB 的备份文件。</p>
+
+          <div class="card">
+            <div class="card__head"><span>本机数据</span></div>
+            <div class="fld fld--actions">
+              <button class="btn btn--tiny" id="btnBackup" type="button">导出完整备份</button>
+              <button class="btn btn--tiny" id="btnRestore" type="button">恢复完整备份</button>
+              <button class="btn btn--tiny" id="btnExportCfg" type="button">导出设置</button>
+              <button class="btn btn--tiny" id="btnOpenData" type="button">打开数据目录</button>
+              <button class="btn btn--tiny btn--danger" id="btnWipe" type="button">清空书架</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__head"><span>缓存</span></div>
+            <div class="fld fld--stack">
+              <div class="fld__top"><span class="fld__label">封面缓存</span><span class="fld__val" id="cacheCoverStat">统计中…</span></div>
+              <div class="cache-path" id="cacheCoverPath">—</div>
+              <div class="fld fld--actions">
+                <button class="btn btn--tiny" id="btnCachePick" type="button">更改目录</button>
+                <button class="btn btn--tiny" id="btnCacheOpen" type="button">打开目录</button>
+                <button class="btn btn--tiny" id="btnCacheDefault" type="button">恢复默认</button>
+                <button class="btn btn--tiny btn--danger" id="btnCacheClear" type="button">清空缓存</button>
+              </div>
+              <div class="fld__ends"><span>已下载的封面会存在这里，重开软件不必重新下载</span><span>上限 200 MB · 保留 14 天</span></div>
+            </div>
+            <div class="fld fld--stack">
+              <div class="fld__top"><span class="fld__label">书籍缓存</span><span class="fld__val">暂未使用</span></div>
+              <div class="cache-path cache-path--off">离线阅读的正文缓存还没做，做好后也在这里选择目录</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ---------- 关于 ---------- -->
+        <section class="pane" data-pane="about">
+          <h2 class="pane__title">关于</h2>
+          <p class="pane__sub">iread <b id="setVersion" class="pane__ver"></b> · 本地 TXT / EPUB 阅读 + 兼容 Legado 书源的在线阅读</p>
+
+          <div class="card">
+            <div class="card__head"><span>条款与许可</span></div>
+            <div class="fld fld--actions">
+              <button class="btn btn--tiny" id="btnDisclaimer" type="button">免责声明</button>
+              <button class="btn btn--tiny" id="btnPrivacy" type="button">隐私政策</button>
+              <button class="btn btn--tiny" id="btnLicenses" type="button">开源许可</button>
+              <button class="btn btn--tiny" id="btnAbout" type="button">关于 iread</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__head"><span>快捷键</span></div>
+            <div class="keys">
+              <span><kbd>←</kbd><kbd>→</kbd>上/下一章（翻页模式下翻页）</span>
+              <span><kbd>空格</kbd>翻页</span>
+              <span><kbd>+</kbd><kbd>-</kbd>字号</span>
+              <span><kbd>T</kbd>目录<kbd>S</kbd>设置</span>
+              <span><kbd>Esc</kbd>返回书架</span>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- ============ 书源抽屉 ============ -->
+<!-- ============ 书源管理（「我的 → 书源管理」子页；原先的右侧抽屉已并入这里） ============ -->
+<!-- ============ 书源管理（我的 → 书源管理：入口列表 + 三个子页） ============ -->
+<div id="sourceHost" hidden>
+  <div class="srcpage" id="sourcePanel">
+
+    <section class="srcpane" data-srcpane="hub">
+      <button class="src-hub-row" data-srcgo="sources" type="button">
+        <span class="src-hub-row__text">
+          <span class="src-hub-row__t">书源</span>
+          <span class="src-hub-row__n" id="srcHubSources"></span>
+        </span>
+        <span class="src-hub-row__chev" aria-hidden="true">›</span>
+      </button>
+      <button class="src-hub-row" data-srcgo="check" type="button">
+        <span class="src-hub-row__text">
+          <span class="src-hub-row__t">检测</span>
+        </span>
+        <span class="src-hub-row__chev" aria-hidden="true">›</span>
+      </button>
+      <button class="src-hub-row" data-srcgo="groups" type="button">
+        <span class="src-hub-row__text">
+          <span class="src-hub-row__t">分组</span>
+          <span class="src-hub-row__n" id="srcHubGroups"></span>
+        </span>
+        <span class="src-hub-row__chev" aria-hidden="true">›</span>
+      </button>
+    </section>
+
+    <section class="srcpane" data-srcpane="sources" hidden>
+      <div class="src-tools">
+        <input id="srcSearch" type="search" placeholder="搜书名 / 地址 / 分组" autocomplete="off" spellcheck="false">
+        <button class="btn btn--primary" id="btnSourceImport" type="button">导入</button>
+        <button class="btn btn--ghost" id="btnSourceNet" type="button">网络导入</button>
+      </div>
+      <div class="src-filter" id="sourceFilter">
+        <button class="chip on" data-filter="all" type="button">全部<span class="chip__n"></span></button>
+        <button class="chip" data-filter="ok" type="button">可用<span class="chip__n"></span></button>
+        <button class="chip" data-filter="bad" type="button">失效<span class="chip__n"></span></button>
+        <button class="chip" data-filter="untested" type="button">未测<span class="chip__n"></span></button>
+        <button class="chip" data-filter="star" type="button">收藏<span class="chip__n"></span></button>
+      </div>
+      <div class="src-groups" id="srcGroups"></div>
+      <div class="srcpage__head">
+        <span class="srcpage__title">书源</span>
+        <span class="srcpage__count" id="sourceCount"></span>
+      </div>
+      <div class="src-list" id="sourceList"></div>
+      <div class="src-foot">
+        <div class="src-foot__row">
+          <button class="btn btn--ghost" id="btnSourceAll" type="button">全选</button>
+          <button class="btn btn--ghost" id="btnSourceInvert" type="button">反选</button>
+          <button class="btn btn--ghost" id="btnSourceExport" type="button">导出所选</button>
+        <button class="btn btn--ghost" id="btnSourceAssign" type="button">归入分组</button>
+          <button class="btn btn--danger" id="btnSourcePurge" type="button">清理失效源</button>
+          <button class="btn btn--danger" id="btnSourceDelete" type="button">删除所选</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="srcpane" data-srcpane="check" hidden>
+      <div class="src-scan">
+        <button class="btn btn--primary src-scan__btn" id="btnScanFast" type="button">
+          快速检测
+        </button>
+        <button class="btn btn--primary src-scan__btn" id="btnScanSlow" type="button">
+          深度检测
+        </button>
+      </div>
+      <div class="src-scope" id="scanScope" role="radiogroup" aria-label="筛选范围">
+        <button class="src-scope__opt on" data-scope="all" type="button" role="radio" aria-checked="true">筛选全部</button>
+        <button class="src-scope__opt" data-scope="group" type="button" role="radio" aria-checked="false">筛选分组</button>
+        <button class="src-scope__opt" data-scope="untested" type="button" role="radio" aria-checked="false">筛选未测</button>
+      </div>
+      <p class="src-scan__status" id="scanStatus">还没检测过。检测会依次验证：发现页、搜索、书目、目录、正文。</p>
+      <div class="src-navlist">
+        <button class="src-hub-row" id="btnBlackClear" type="button">
+          <span class="src-hub-row__text">
+            <span class="src-hub-row__t">黑名单</span>
+          </span>
+          <span class="src-hub-row__chev" aria-hidden="true">›</span>
+        </button>
+        <button class="src-hub-row" id="btnScreenLogs" type="button">
+          <span class="src-hub-row__text">
+            <span class="src-hub-row__t">筛选日志</span>
+          </span>
+          <span class="src-hub-row__chev" aria-hidden="true">›</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="srcpane" data-srcpane="groups" hidden>
+      <div class="srcpage__head">
+        <span class="srcpage__title">分组</span>
+        <button class="btn btn--ghost btn--tiny" id="btnGroupSelect" type="button">选择</button>
+        <button class="btn btn--ghost btn--tiny" id="btnGroupAdd" type="button">新建分组</button>
+      </div>
+      <div class="src-grouplist" id="groupManage"></div>
+      <div class="src-foot">
+        <div class="src-foot__row src-foot__row--groups">
+        <button class="btn btn--ghost" id="btnGroupOn" type="button">启用本组</button>
+        <button class="btn btn--ghost" id="btnGroupOff" type="button">停用本组</button>
+        <button class="btn btn--ghost" id="btnGroupRename" type="button">重命名</button>
+        <button class="btn btn--danger" id="btnGroupDel" type="button">删除分组</button>
+        <button class="btn btn--ghost" id="btnGroupAssign" type="button">归入所选</button>
+        <button class="btn btn--ghost" id="btnGroupSelAll" type="button">全选分组</button>
+        <button class="btn btn--danger" id="btnGroupSelDel" type="button">删除所选分组</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ============ 通用弹层（确认 / 选择） ============ -->
+<div class="modal" id="modal" hidden>
+  <div class="modal__mask" data-modal-close></div>
+  <div class="modal__card" role="dialog" aria-modal="true">
+    <p class="modal__text" id="modalText"></p>
+    <div class="modal__list" id="modalList" hidden></div>
+    <div class="modal__actions">
+      <button class="btn" id="modalCancel" type="button">取消</button>
+      <button class="btn btn--primary" id="modalOk" type="button">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 首启声明 / 引导教程（复用 modal 样式体系，仅渲染层内部驱动） ============ -->
+<div class="modal" id="frModal" hidden>
+  <div class="modal__mask"></div>
+  <div class="modal__card" role="dialog" aria-modal="true">
+    <h3 class="frmodal__title" id="frTitle"></h3>
+    <div class="frmodal__body" id="frBody"></div>
+    <label class="frmodal__check"><input type="checkbox" id="frNever"><span>下次不再弹出</span></label>
+    <div class="modal__actions">
+      <button class="btn btn--primary" id="frOk" type="button">我已知晓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 关闭确认（点标题栏关闭 / Alt+F4 时弹出） ============ -->
+<div class="cmodal" id="closeDlg" hidden>
+  <div class="cmodal__mask"></div>
+  <div class="cmodal__card" role="dialog" aria-modal="true" aria-labelledby="closeDlgTitle">
+    <div class="cmodal__icon" aria-hidden="true"><i></i></div>
+    <h2 class="cmodal__title" id="closeDlgTitle">关闭 iread？</h2>
+    <p class="cmodal__sub">选择关闭窗口后的操作</p>
+    <div class="cmodal__opts" role="radiogroup" aria-label="关闭方式">
+      <button class="copt on" type="button" data-closemode="tray" role="radio" aria-checked="true">
+        <span class="copt__icon" aria-hidden="true"><i></i></span>
+        <span class="copt__body"><span class="copt__t">最小化至托盘</span><span class="copt__d">隐藏窗口，继续在后台运行</span></span>
+        <span class="copt__dot" aria-hidden="true"></span>
+      </button>
+      <button class="copt" type="button" data-closemode="quit" role="radio" aria-checked="false">
+        <span class="copt__icon" aria-hidden="true"><i></i></span>
+        <span class="copt__body"><span class="copt__t">退出 iread</span><span class="copt__d">结束运行并关闭应用</span></span>
+        <span class="copt__dot" aria-hidden="true"></span>
+      </button>
+    </div>
+    <label class="cmodal__remember">
+      <input type="checkbox" id="closeRemember">
+      <span class="cmodal__box" aria-hidden="true"></span>
+      <span class="copt__body"><span class="copt__t">记住我的选择</span><span class="copt__d">下次关闭窗口时不再询问</span></span>
+    </label>
+    <div class="cmodal__actions">
+      <button class="btn btn--ghost" id="closeCancel" type="button">取消</button>
+      <button class="btn btn--primary" id="closeOk" type="button">最小化至托盘</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 手动判定书源（行内「判定」按钮，用来纠正误杀） ============ -->
+<div class="cmodal" id="verdictDlg" hidden>
+  <div class="cmodal__mask"></div>
+  <div class="cmodal__card" role="dialog" aria-modal="true" aria-labelledby="verdictDlgTitle">
+    <h2 class="cmodal__title" id="verdictDlgTitle">判定书源</h2>
+    <p class="cmodal__sub" id="verdictDlgSub">手动指定这个书源是可用的还是失效的</p>
+    <div class="cmodal__opts" role="radiogroup" aria-label="判定结果">
+      <button class="copt" type="button" data-verdict="ok" role="radio" aria-checked="false">
+        <span class="copt__icon" aria-hidden="true"><i></i></span>
+        <span class="copt__body"><span class="copt__t">可用</span><span class="copt__d">能拿到书和正文，不会被自动删掉</span></span>
+        <span class="copt__dot" aria-hidden="true"></span>
+      </button>
+      <button class="copt" type="button" data-verdict="dead" role="radio" aria-checked="false">
+        <span class="copt__icon" aria-hidden="true"><i></i></span>
+        <span class="copt__body"><span class="copt__t">失效</span><span class="copt__d">确定用不了，归到失效里但不自动删</span></span>
+        <span class="copt__dot" aria-hidden="true"></span>
+      </button>
+    </div>
+    <div class="cmodal__actions">
+      <button class="btn btn--ghost" id="verdictAuto" type="button">恢复自动判定</button>
+      <button class="btn btn--ghost" id="verdictCancel" type="button">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 解析中 ============ -->
+<div class="loading" id="loading"><div class="loading__box"><div class="spinner"></div><div id="loadingText">正在解析…</div></div></div>
+
+  <script src="js/inflate.js"></script>
+<script src="js/store.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/platform.js"></script>
+<script src="js/data-tools.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/legal.js"></script>
+<script src="js/covers.js"></script>
+<script src="js/cover-auto.js"></script>
+<script src="js/mediaview.js"></script>
+<script src="js/mpv.js"></script>
+<script src="js/videoview.js"></script>
+<script src="js/audioview.js"></script>
+  <script src="js/sources/legado.js"></script>
+<script src="js/sources/capabilities.js"></script>
+<script src="js/sources/source-runtime.js"></script>
+<script src="js/sources/index.js"></script>
+<script src="js/hotrank.js"></script>
+<script src="js/online.js"></script>
+<script src="js/bookstore.js"></script>
+<script src="js/vendor/hls.min.js"></script>
+<script src="js/adskip.js"></script>
+<script src="js/reading-stats.js"></script>
+<script src="js/plugins.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

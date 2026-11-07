@@ -1,0 +1,779 @@
+/* ==========================================================================
+   视频播放页（独立 UI，借鉴 Netflix / Disney+ / B 站的播放器交互惯例）
+   - 舞台永远是深色：内容（视频）是主角，主题色只用在控件高亮上
+   - 控件 3 秒无操作淡出；鼠标移动 / 键盘操作 / 暂停时重新出现
+   ========================================================================== */
+
+/* 视频播放时把左侧导航整条收起来，画面独占窗口 */
+#app.video-mode #mainNav { display: none; }
+#app.video-mode > .view:not(#readView) { padding-left: 0; }
+
+#videoView {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: #07080b;
+  color: #eef1f7;
+  overflow: hidden;
+}
+
+/* ---------- 顶栏 ---------- */
+.vv-top {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px 34px;
+  background: linear-gradient(180deg, rgba(4, 5, 8, 0.88) 0%, rgba(4, 5, 8, 0) 100%);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.vv-top.is-hidden { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+
+.vv-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+.vv-back:hover { background: rgba(255, 255, 255, 0.2); transform: translateX(-1px); }
+.vv-back svg { width: 18px; height: 18px; }
+
+.vv-titles { flex: 1 1 auto; min-width: 0; }
+.vv-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+}
+.vv-sub {
+  margin-top: 3px;
+  font-size: 12px;
+  color: rgba(238, 241, 247, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vv-sub b { color: var(--lamp, #ffb457); font-weight: 600; }
+
+/* 顶栏右侧动作：加入书架 / 切换线路 */
+.vv-acts { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.vv-topbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 12.5px;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+.vv-topbtn:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.3); }
+.vv-topbtn svg { width: 15px; height: 15px; }
+
+/* ---------- 主体：舞台 + 选集 ---------- */
+.vv-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+.vv-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+}
+.vv-stage.is-full {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+.vv-stage video {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: #000;
+  display: block;
+  cursor: pointer;
+}
+
+/* 海报 / 首帧封面：播放前铺在视频上 */
+.vv-poster {
+  position: absolute;
+  inset: 0;
+  background: #000 center/contain no-repeat;
+  filter: saturate(1.02);
+  transition: opacity 0.3s ease;
+}
+.vv-poster.is-gone { opacity: 0; pointer-events: none; }
+.vv-poster::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 50% 50%, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.72) 100%);
+}
+
+/* 中央大按钮 */
+.vv-bigplay {
+  position: absolute;
+  z-index: 4;
+  width: 84px;
+  height: 84px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0b0d12;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.55);
+  transition: transform 0.16s ease, opacity 0.2s ease, background 0.16s ease;
+}
+.vv-bigplay:hover { transform: scale(1.06); background: #fff; }
+.vv-bigplay svg { width: 34px; height: 34px; margin-left: 3px; }
+.vv-bigplay.is-hidden { opacity: 0; pointer-events: none; }
+
+/* 中央状态（加载 / 错误） */
+.vv-status {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 420px;
+  padding: 20px 24px;
+  text-align: center;
+  border-radius: 16px;
+  background: rgba(10, 12, 18, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+}
+.vv-status.is-hidden { display: none; }
+.vv-status__text { font-size: 13.5px; color: rgba(238, 241, 247, 0.86); line-height: 1.6; }
+.vv-status__acts { display: flex; gap: 8px; }
+.vv-spin {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 2.5px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--lamp, #ffb457);
+  animation: vvSpin 0.9s linear infinite;
+}
+@keyframes vvSpin { to { transform: rotate(360deg); } }
+
+/* “继续观看”浮层 */
+.vv-resume {
+  position: absolute;
+  z-index: 5;
+  left: 24px;
+  bottom: 96px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: rgba(12, 14, 20, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12.5px;
+  color: rgba(238, 241, 247, 0.9);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.vv-resume.is-hidden { opacity: 0; transform: translateY(-6px); pointer-events: none; }
+.vv-resume button {
+  border: 0;
+  background: transparent;
+  color: var(--lamp, #ffb457);
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ---------- 底部控制条 ---------- */
+.vv-ctrl {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  padding: 26px 18px 12px;
+  background: linear-gradient(0deg, rgba(3, 4, 7, 0.94) 0%, rgba(3, 4, 7, 0.55) 55%, rgba(3, 4, 7, 0) 100%);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.vv-ctrl.is-hidden { opacity: 0; transform: translateY(10px); pointer-events: none; }
+/* 渐变留白不要吃点击：只有控件本身接收事件，其余位置仍算「点屏幕」 */
+.vv-ctrl { pointer-events: none; }
+.vv-ctrl > * { pointer-events: auto; }
+.vv-top { pointer-events: none; }
+.vv-top > * { pointer-events: auto; }
+
+/* 进度条 */
+.vv-seek {
+  position: relative;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+}
+.vv-seek__track {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  transition: height 0.14s ease;
+  overflow: hidden;
+}
+.vv-seek:hover .vv-seek__track,
+.vv-seek.is-drag .vv-seek__track { height: 7px; }
+.vv-seek__buf { position: absolute; inset: 0 auto 0 0; background: rgba(255, 255, 255, 0.34); width: 0; }
+.vv-seek__fill { position: absolute; inset: 0 auto 0 0; background: var(--lamp, #ffb457); width: 0; }
+.vv-seek__knob {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #fff;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.14s ease;
+  pointer-events: none;
+}
+.vv-seek:hover .vv-seek__knob,
+.vv-seek.is-drag .vv-seek__knob { transform: translate(-50%, -50%) scale(1); }
+.vv-tip {
+  position: absolute;
+  bottom: 22px;
+  transform: translateX(-50%);
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.vv-seek:hover .vv-tip, .vv-seek.is-drag .vv-tip { opacity: 1; }
+.vv-tip.is-on { opacity: 1; }
+
+/* 长按快进角标 */
+.vv-rate {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 7;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 13.5px;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+.vv-rate.is-hidden { opacity: 0; }
+
+/* 锁定小锁：锁住后唯一的可点对象 */
+.vv-lock {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 8;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.42);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: opacity 0.18s ease, background 0.16s ease;
+}
+.vv-lock:hover { background: rgba(0, 0, 0, 0.6); }
+.vv-lock svg { width: 19px; height: 19px; }
+.vv-lock.is-hidden { opacity: 0; pointer-events: none; }
+.vv-lock.is-locked { color: var(--lamp, #ffb457); border-color: rgba(255, 180, 87, 0.5); }
+
+/* 按钮行 */
+.vv-bar {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.vv-btn {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(238, 241, 247, 0.92);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.vv-btn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.vv-btn svg { width: 19px; height: 19px; }
+.vv-btn.is-text { width: auto; padding: 0 9px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+.vv-time {
+  margin-left: 4px;
+  font-size: 12.5px;
+  color: rgba(238, 241, 247, 0.86);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.vv-time i { font-style: normal; color: rgba(238, 241, 247, 0.5); }
+
+.vv-vol {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.vv-vol__range {
+  width: 0;
+  opacity: 0;
+  transition: width 0.16s ease, opacity 0.16s ease;
+  accent-color: var(--lamp, #ffb457);
+  cursor: pointer;
+}
+.vv-vol:hover .vv-vol__range { width: 74px; opacity: 1; }
+
+.vv-spacer { flex: 1 1 auto; }
+
+/* 倍速菜单 */
+.vv-menu {
+  position: absolute;
+  right: 14px;
+  bottom: 56px;
+  min-width: 104px;
+  padding: 6px;
+  border-radius: 10px;
+  background: rgba(16, 18, 24, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+  display: none;
+  z-index: 8;
+}
+.vv-menu.is-open { display: block; }
+.vv-menu button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(238, 241, 247, 0.9);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.vv-menu button:hover { background: rgba(255, 255, 255, 0.1); }
+.vv-menu button.is-on { color: var(--lamp, #ffb457); }
+/* 切线路的菜单条目更长，给它宽一点、超长可滚 */
+.vv-menu[data-kind="line"] { min-width: 184px; max-width: 62vw; max-height: 46vh; overflow: auto; }
+.vv-menu[data-kind="line"] button span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 右侧选集面板 ---------- */
+.vv-side {
+  flex: 0 0 320px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+  background: #0b0d12;
+  transition: flex-basis 0.22s ease, opacity 0.18s ease;
+}
+.vv-body.is-side-off .vv-side { flex-basis: 0; opacity: 0; border-left: 0; pointer-events: none; }
+
+.vv-side__head {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.vv-side__title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.vv-side__title span { font-size: 11.5px; font-weight: 400; color: rgba(238, 241, 247, 0.5); }
+/* 头部右侧「收起选集」按钮 */
+.vv-side__row { display: flex; align-items: center; gap: 8px; }
+.vv-side__back {
+  margin-left: auto;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(238, 241, 247, 0.78);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+.vv-side__back:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.vv-side__back svg { width: 14px; height: 14px; }
+
+.vv-side__meta {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: rgba(238, 241, 247, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 线路 tabs */
+.vv-lines {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.vv-lines::-webkit-scrollbar { display: none; }
+.vv-line {
+  flex: 0 0 auto;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: rgba(238, 241, 247, 0.72);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.14s ease;
+}
+.vv-line:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
+.vv-line.is-on {
+  background: rgba(255, 180, 87, 0.16);
+  border-color: rgba(255, 180, 87, 0.5);
+  color: var(--lamp, #ffb457);
+}
+.vv-line.is-dim { opacity: 0.45; text-decoration: line-through; }
+
+/* 剧集网格 */
+.vv-eps {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 14px 22px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+  align-content: start;
+}
+.vv-ep {
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(238, 241, 247, 0.86);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 4px;
+  transition: all 0.14s ease;
+}
+.vv-ep:hover { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.26); }
+.vv-ep.is-on {
+  background: var(--lamp, #ffb457);
+  border-color: var(--lamp, #ffb457);
+  color: #14100a;
+  font-weight: 600;
+}
+.vv-ep.is-seen { color: rgba(255, 180, 87, 0.85); border-color: rgba(255, 180, 87, 0.28); }
+
+.vv-side__foot {
+  padding: 10px 16px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  gap: 8px;
+}
+.vv-side__foot button {
+  flex: 1 1 auto;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(238, 241, 247, 0.86);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.vv-side__foot button:hover { background: rgba(255, 255, 255, 0.12); }
+.vv-side__foot button:disabled { opacity: 0.38; cursor: default; }
+
+/* ---------- 下一集提示 ---------- */
+.vv-next {
+  position: absolute;
+  right: 22px;
+  bottom: 92px;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(12, 14, 20, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+.vv-next.is-hidden { display: none; }
+.vv-next__text { font-size: 12.5px; line-height: 1.5; }
+.vv-next__text b { color: var(--lamp, #ffb457); }
+.vv-next button {
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-size: 12.5px;
+  cursor: pointer;
+  background: var(--lamp, #ffb457);
+  color: #14100a;
+  font-weight: 600;
+}
+.vv-next button.is-ghost { background: transparent; color: rgba(238, 241, 247, 0.8); border: 1px solid rgba(255, 255, 255, 0.16); font-weight: 400; }
+
+/* ---------- 窄屏：选集改底部抽屉 ---------- */
+@media (max-width: 980px) {
+  .vv-body { position: relative; }
+  .vv-side {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 56%;
+    flex-basis: auto;
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px 16px 0 0;
+    transform: translateY(0);
+    transition: transform 0.2s ease;
+    z-index: 9;
+  }
+  .vv-body.is-side-off .vv-side { transform: translateY(100%); opacity: 1; }
+  .vv-eps { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
+/* ---------- 手机（≤760px）：控制栏两行化 + 底部选集抽屉 ---------- */
+@media (max-width: 760px) {
+  /* 去圆角（统一 4px 微角） */
+  .vv-btn, .vv-ep, .vv-line, .vv-menu, .vv-next, .vv-resume { border-radius: 4px !important; }
+  .vv-menu button { border-radius: 4px !important; }
+
+  /* 竖屏 stage：16:9 上限、不顶满整屏，视频 contain */
+  .vv-body { align-items: center; justify-content: center; }
+  .vv-stage { flex: 0 1 auto; width: 100%; aspect-ratio: 16 / 9; max-height: 100%; }
+  .vv-stage video { object-fit: contain; }
+
+  /* 大播放键：居中 72px */
+  .vv-bigplay { width: 72px; height: 72px; }
+  .vv-bigplay svg { width: 30px; height: 30px; }
+
+  /* 控制栏：进度条第一行（全宽 8px），按钮第二行 */
+  .vv-ctrl { padding: 30px 10px 10px; }
+  .vv-seek { height: 22px; }
+  .vv-seek__track { height: 8px; border-radius: 4px; }
+  .vv-seek:hover .vv-seek__track,
+  .vv-seek.is-drag .vv-seek__track { height: 8px; }
+  .vv-seek__knob { width: 14px; height: 14px; transform: translate(-50%, -50%) scale(1); }
+  .vv-tip { bottom: 26px; }
+
+  /* 时间挪到进度条上方右侧小字 */
+  .vv-time {
+    position: absolute;
+    right: 12px;
+    top: 6px;
+    margin-left: 0;
+    font-size: 11px;
+    color: rgba(238, 241, 247, 0.72);
+  }
+
+  /* 删掉音量键（手机有物理音量键）；画中画在手机上也收起 */
+  .vv-vol { display: none; }
+  .vv-bar > button.vv-btn[title^="画中画"] { display: none; }
+
+  /* 第二行按钮：左侧上一集/播放/下一集 44×44 大按钮；右侧倍速/选集/全屏 36×36 */
+  .vv-bar { gap: 4px; margin-top: 4px; }
+  .vv-bar > button.vv-btn { width: 36px; height: 36px; }
+  .vv-bar > button.vv-btn:nth-of-type(-n+3) { width: 44px; height: 44px; }
+  .vv-bar > button.vv-btn:nth-of-type(-n+3) svg { width: 23px; height: 23px; }
+  .vv-bar > button.vv-btn.is-text { width: auto; min-width: 36px; padding: 0 8px; }
+
+  /* 倍速菜单贴着按钮行上方 */
+  .vv-menu { right: 8px; bottom: 62px; }
+
+  /* 选集：固定底部抽屉，升到 70vh，剧集 4 列，线路 chips 横向滚动 */
+  .vv-side {
+    max-height: 70vh;
+    height: 70vh;
+    border-radius: 4px 4px 0 0;
+  }
+  .vv-eps { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 10px 12px 18px; }
+  .vv-ep { height: 36px; }
+  .vv-lines { padding: 10px 12px 2px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* 下一集 / 续播提示位置随两行控制栏上移 */
+  .vv-next { right: 10px; bottom: 104px; }
+  .vv-resume { left: 12px; bottom: 108px; }
+
+  /* 顶栏动作按钮：手机上压小一点，别把标题挤没 */
+  .vv-acts { gap: 6px; }
+  .vv-topbtn { height: 30px; padding: 0 9px; font-size: 12px; gap: 5px; }
+  .vv-topbtn svg { width: 14px; height: 14px; }
+  /* 锁定小锁：手机上离右边缘近一点、略小 */
+  .vv-lock { width: 36px; height: 36px; right: 10px; }
+  .vv-lock svg { width: 17px; height: 17px; }
+  .vv-rate { font-size: 12.5px; padding: 7px 13px; }
+}
+
+/* 很窄的手机：顶栏动作只留图标 */
+@media (max-width: 560px) {
+  .vv-topbtn span { display: none; }
+  .vv-topbtn { width: 30px; padding: 0; justify-content: center; }
+}
+
+/* ---------- 全屏（CSS 铺满，WebView 里不依赖 requestFullscreen） ---------- */
+html.vv-noscroll, html.vv-noscroll body { overflow: hidden; }
+.vv-stage.is-full {
+  position: fixed; inset: 0; z-index: 90;
+  width: 100vw !important; height: 100vh !important;
+  max-height: none !important; aspect-ratio: auto !important;
+}
+.view.is-fakefull .vv-top { position: fixed; top: 0; left: 0; right: 0; z-index: 96; background: linear-gradient(180deg, rgba(3, 4, 7, 0.92) 0%, rgba(3, 4, 7, 0) 100%); }
+.view.is-fakefull .vv-side { position: fixed; top: 0; right: 0; bottom: 0; width: 340px; max-width: 42vw; z-index: 95; }
+@media (max-width: 760px) {
+  .view.is-fakefull .vv-side { top: auto; left: 0; width: auto; max-width: none; height: 70vh; }
+}
+
+/* ============ 内置 mpv 播放模式 ============
+   宿主把 WebView2 缩成窗口底部一条（默认 76px），上面交给 mpv 画视频。
+   .vv-ctrl 在 DOM 里挂在 .vv-stage 内部，所以这里不能把 stage 整个隐藏，
+   只藏掉 stage 里的 video/poster 等，再让控制栏铺满整条。 */
+#videoView.is-mpv {
+  background: #0b0d11;
+}
+#videoView.is-mpv .vv-top,
+#videoView.is-mpv .vv-stage video,
+#videoView.is-mpv .vv-poster,
+#videoView.is-mpv .vv-resume,
+#videoView.is-mpv .vv-next,
+#videoView.is-mpv .vv-rate {
+  display: none !important;
+}
+#videoView.is-mpv .vv-stage {
+  background: #0b0d11;
+}
+#videoView.is-mpv .vv-btn--lock,
+#videoView.is-mpv .vv-bar > button.vv-btn[title^="画中画"] {
+  display: none !important;
+}
+#videoView.is-mpv .vv-ctrl,
+#videoView.is-mpv .vv-ctrl.is-hidden {
+  position: absolute;
+  left: 0; right: 0; top: 0; bottom: 0;
+  padding: 4px 12px 6px;
+  background: #0b0d11;
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+}
+#videoView.is-mpv .vv-ctrl > * { pointer-events: auto; }
+#videoView.is-mpv .vv-seek {
+  height: 18px;
+  display: flex;
+  align-items: center;
+}
+#videoView.is-mpv .vv-seek__track { height: 4px; }
+#videoView.is-mpv .vv-bar {
+  gap: 8px;
+  margin-top: 0;
+  height: 38px;
+  align-items: center;
+}
+#videoView.is-mpv .vv-bar > button.vv-btn {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+}
+#videoView.is-mpv .vv-btn svg { width: 17px; height: 17px; }
+#videoView.is-mpv .vv-btn.is-text { font-size: 12px; padding: 0 8px; }
+#videoView.is-mpv .vv-time { font-size: 12px; font-variant-numeric: tabular-nums; }
+/* 音量条：桌面上默认是 hover 才展开（width:0），在 mpv 这条窄带里根本点不到，
+   这里干脆常显，顺便把滑块做大一点更好拖。 */
+#videoView.is-mpv .vv-vol { gap: 4px; }
+#videoView.is-mpv .vv-vol__range {
+  width: 92px;
+  opacity: 1;
+  height: 18px;
+}
+#videoView.is-mpv .vv-btn.is-on { color: var(--lamp, #ffb457); }
+#videoView.is-mpv .vv-status {
+  background: rgba(11, 13, 17, 0.92);
+  font-size: 12px;
+}
+@media (max-width: 760px) {
+  #videoView.is-mpv .vv-bar { gap: 6px; height: 36px; }
+  #videoView.is-mpv .vv-bar > button.vv-btn { width: 32px; height: 32px; }
+  #videoView.is-mpv .vv-vol__range { width: 68px; }
+}
+
+/* mpv 模式下 WebView2 只占底部一条：网页自绘的窗口按钮会掉进这条里压住进度条，
+   窗口按钮改由宿主原生标题条提供（见 IreadHost.MpvBuildTop）。 */
+body.mpv-mode #winCtrl,
+body.mpv-mode #winResize { display: none !important; }

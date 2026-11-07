@@ -1,0 +1,98 @@
+/* =========================================================================
+ * motion.css — 动效
+ *   一个编排好的入场（继续阅读 + 书目依次浮现），其余动效只回应操作：
+ *   悬停、抽屉开合、翻页、换章。全部只动 transform / opacity。
+ *   动画结束态用 backwards，别用 both，否则会把 hover 的 transform 冻住。
+ *   开关在设置里（不跟随系统 prefers-reduced-motion，见 README）。
+ * ========================================================================= */
+
+/* ---------------- 入场：一次编排 ---------------- */
+@keyframes riseIn{
+  from{ opacity:0; transform:translateY(10px) }
+  to{ opacity:1; transform:none }
+}
+@keyframes fadeIn{
+  from{ opacity:0 }
+  to{ opacity:1 }
+}
+
+.hero{ animation:riseIn .42s var(--ease) backwards; }
+
+.row{
+  animation:riseIn .38s var(--ease) backwards;
+  animation-delay:calc(var(--i,0) * 34ms + 90ms);
+}
+
+.shelf__head{ animation:fadeIn .34s var(--ease) backwards; animation-delay:40ms; }
+
+.empty{ animation:fadeIn .5s var(--ease) backwards; }
+.empty__mark{ animation:riseIn .5s var(--ease) backwards; animation-delay:60ms; }
+
+/* ---------------- 视图切换 ---------------- */
+/* 只淡入：阅读页的顶栏/底栏是 fixed，父级一带 transform 就会跟着抖 */
+.view.view-in{ animation:fadeIn .22s var(--ease) backwards; }
+
+/* ---------------- 抽屉 ---------------- */
+@keyframes drawerInL{
+  from{ transform:translateX(-102%); opacity:.6 }
+  to{ transform:none; opacity:1 }
+}
+@keyframes drawerInR{
+  from{ transform:translateX(102%); opacity:.6 }
+  to{ transform:none; opacity:1 }
+}
+@keyframes maskIn{ from{ opacity:0 } to{ opacity:1 } }
+
+.drawer__panel{ animation:drawerInL .32s var(--ease-spring) backwards; will-change:transform; }
+.drawer--right .drawer__panel{ animation:drawerInR .32s var(--ease-spring) backwards; }
+.drawer__mask{ animation:maskIn .22s var(--ease) backwards; }
+
+/* 设置项自上而下依次浮现 */
+.drawer.open .set__group{ animation:riseIn .3s var(--ease) backwards; }
+.drawer.open .set__group:nth-child(1){ animation-delay:40ms }
+.drawer.open .set__group:nth-child(2){ animation-delay:62ms }
+.drawer.open .set__group:nth-child(3){ animation-delay:84ms }
+.drawer.open .set__group:nth-child(4){ animation-delay:106ms }
+.drawer.open .set__group:nth-child(5){ animation-delay:128ms }
+.drawer.open .set__group:nth-child(6){ animation-delay:150ms }
+.drawer.open .set__group:nth-child(7){ animation-delay:172ms }
+.drawer.open .set__group:nth-child(8){ animation-delay:194ms }
+.drawer.open .set__group:nth-child(9){ animation-delay:216ms }
+
+.drawer.open .toc-item{ animation:riseIn .26s var(--ease) backwards; }
+.toc-item .t{ transition:transform .16s var(--ease); }
+.toc-item:hover .t{ transform:translateX(2px); }
+
+/* ---------------- 阅读 ---------------- */
+@keyframes contentIn{ from{ opacity:.4 } to{ opacity:1 } }
+.content.chap-in, .page-inner.page-in{ animation:contentIn .22s var(--ease) backwards; }
+
+/* 换配色 / 换字号时颜色平滑过渡，不硬切 */
+#readView, .reader-top, .reader-bottom, .content, .page-viewport, #app{
+  transition:background-color .34s var(--ease-soft),
+             color .34s var(--ease-soft),
+             border-color .34s var(--ease-soft);
+}
+
+/* ---------------- 控件微反馈 ---------------- */
+.chip, .swatch i, .switch input, .switch input::after, .row__spine i, .row__spine,
+.hero__rule i, .hero__title, .row__title, .row__del, .btn, .toc-item{
+  will-change:auto;
+}
+
+/* ---------------- 关闭动效 ---------------- */
+html.no-motion *,
+html.no-motion *::before,
+html.no-motion *::after{
+  animation-duration:.001ms !important;
+  animation-delay:0ms !important;
+  transition-duration:.001ms !important;
+}
+html.no-motion .row:hover .row__del{ opacity:1; transform:none; }
+
+@media (prefers-reduced-motion:reduce){
+  #mainNav,#mainNav .nav__tab,#mainNav .nav__label,#app>.view,.view.view-in{
+    transition:none!important;
+    animation:none!important;
+  }
+}

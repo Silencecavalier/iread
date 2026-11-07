@@ -1,0 +1,97 @@
+# ───────────── .NET ─────────────
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.binlog
+
+# 自包含发布产物（体积 ×2，一律走 Release 附件）
+publish/
+publish-*/
+webview2-test/publish/
+**/webview2-test/publish/
+
+# ───────────── 构建产物（可执行/安装包/校验） ─────────────
+*.exe
+*.msi
+*.nsi.bak
+# 构建时生成的带 BOM 临时副本（NSIS 需要 BOM，仓库里保持无 BOM）
+scripts/.installer.build.nsi
+iread-plugin-*.exe
+iread-*-setup.exe
+*.apk
+*.aab
+*.idsig
+*.keystore
+*.jks
+!**/debug.keystore.template
+android/build/
+iread-android/build/
+SHA256SUMS.txt
+校验和.txt
+
+# ───────────── 本机工具链（便携 SDK / dotnet / nuget 缓存） ─────────────
+.tools/
+.dotnet-home/
+android-sdk/
+android-ndk/
+nuget/
+packages/
+*.nupkg
+.gradle/
+local.properties
+
+# ───────────── Node / Electron 遗留 ─────────────
+node_modules/
+dist/
+release/
+npm-debug.log*
+
+# ───────────── 插件实现（不入库） ─────────────
+# 仓库只含插件运行时；本地调试时放这里的插件源码不要提交
+src/Iread.Renderer/plugins/
+dist/publish/wwwroot/plugins/
+yarn-error.log*
+.pnpm-store/
+
+# ───────────── 运行时数据与调试残留 ─────────────
+# 应用数据根（存储 / 封面缓存 / 插件 / mpv）不进仓库
+tempuukan-profile/
+Tempuukan-profile/
+.test-output/
+shots-raw/
+*.log
+run.log
+app-run.log
+*.trace
+*.cdp.json
+expr-*.js
+eval-cdp.js
+
+# 备份与快照（本地回滚用，体积大且是二进制）
+backup-*/
+backup_*/
+pack-snap-*/
+*-snap/
+
+# ───────────── 编辑器 / 系统 ─────────────
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ───────────── 本地环境覆盖 ─────────────
+.env
+.env.*
+!.env.example
+*.local.json
+appsettings.local.json

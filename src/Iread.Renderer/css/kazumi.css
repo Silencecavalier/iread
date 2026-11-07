@@ -1,0 +1,227 @@
+/* Kazumi 桌面骨架：展开式导航、主视图留白与阅读统计。 */
+:root{ --nav-width:152px; }
+#app{ --nav-width:152px; }
+#app.nav-expanded{ --nav-width:152px; }  /* 用户要求宽度固定：悬停不再变宽 */
+
+#mainNav{
+  position:fixed;
+  inset:0 auto 0 0;
+  z-index:50;
+  display:flex;
+  flex-direction:column;
+  width:var(--nav-width);
+  padding:16px 10px 0;
+  overflow:hidden;
+  background:var(--ink-1);
+  border-right:1px solid var(--hair);
+  transition:width .24s var(--ease);
+}
+#mainNav .brand{
+  flex:0 0 40px;
+  justify-content:center;
+  padding:0 7px;
+  overflow:hidden;
+}
+#mainNav .brand__mark{ width:22px; height:22px; flex-basis:22px; }
+#mainNav .brand__name{
+  max-width:0;
+  overflow:hidden;
+  opacity:0;
+  white-space:nowrap;
+}
+#mainNav .brand{ justify-content:flex-start; }
+#mainNav .brand__name{ max-width:70px; opacity:1; }
+
+#mainNav .main-nav__group{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-top:auto;
+  margin-bottom:20px;
+}
+#mainNav .nav__tab{
+  display:flex;
+  align-items:center;
+  width:100%;
+  height:44px;
+  padding:0 14px;
+  gap:12px;
+  overflow:hidden;
+  white-space:nowrap;
+  background:transparent;
+  border:0;
+  border-radius:12px;
+  color:var(--fg);
+  font-weight:500;
+  cursor:pointer;
+  transition:background-color .18s var(--ease),color .18s var(--ease);
+}
+#mainNav .nav__tab:hover{ background:var(--ink-2); color:var(--fg); }
+#mainNav .nav__tab.on{ background:var(--lamp-wash); color:var(--lamp-2); }
+#mainNav .nav__tab svg{
+  width:22px;
+  height:22px;
+  flex:0 0 22px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.55;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+#mainNav .nav__label{
+  display:inline-block;
+  max-width:80px;
+  overflow:hidden;
+  opacity:1;
+  transform:none;
+}
+
+
+#app>.view:not(#readView){
+  padding-left:var(--nav-width);
+  transition:padding-left .24s var(--ease);
+}
+#app.reading #mainNav{ display:none; }
+#bookstoreView,#mineView{ background:var(--ink-0); }
+#onlineView .topbar h1,#bookstoreView .topbar h1,#mineView .topbar h1{
+  color:var(--fg);
+  font-size:17px;
+  font-weight:600;
+}
+#bookstoreView .empty__desc{
+  max-width:420px;
+  margin-top:-10px;
+  color:var(--fg-3);
+  line-height:1.8;
+}
+
+.reading-stats{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  max-width:720px;
+  margin:20px 24px;
+  overflow:hidden;
+  border-radius:20px;
+  background:var(--stats-bg);
+  color:var(--stats-fg);
+  cursor:default;
+}
+.reading-stat{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  min-height:112px;
+  padding:20px 22px;
+}
+.reading-stat+.reading-stat{ border-left:1px solid var(--stats-line); }
+.reading-stat>span{ font-size:13px; font-weight:600; }
+.reading-stat>strong{
+  display:block;
+  margin:5px 0;
+  font-size:30px;
+  line-height:1.2;
+  font-weight:650;
+  font-variant-numeric:tabular-nums;
+}
+.reading-stat>strong small{ font-size:13px; font-weight:500; }
+.reading-stat>small{ margin-top:auto; color:var(--stats-fg); opacity:.72; font-size:11px; }
+
+/* 我的：列表态（统计 + 分组行卡片）与详情态子页。
+   只定义外观，不绑定入口行为——点行进入哪个 pane 由 app.js 决定。 */
+.mine-scroll{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+  padding:0 0 32px;
+  scrollbar-width:thin;
+}
+.mine-list,.mine-detail{
+  width:100%;
+  max-width:720px;
+  margin:0 auto;
+  padding:0 24px;
+  box-sizing:border-box;
+}
+.mine-list{ display:block; }
+/* 统计卡在列表里跟行卡片同一条左边线：外层已有 24px 内边距，这里不再叠一层 */
+.mine-list .reading-stats{ margin:20px 0; }
+.mine-group{ margin:0 0 20px; }
+.mine-group:last-child{ margin-bottom:6px; }
+.mine-group__title{
+  margin:0 0 9px 4px;
+  color:var(--fg-2);
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.08em;
+}
+.mine-group__cards{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-width:0;
+}
+.mine-row{
+  appearance:none;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  min-width:0;
+  min-height:50px;
+  padding:0 14px;
+  background:var(--ink-1);
+  border:1px solid var(--hair);
+  border-radius:14px;
+  color:var(--fg);
+  font-family:var(--sans);
+  font-size:13.5px;
+  text-align:left;
+  cursor:pointer;
+  transition:background .16s var(--ease-soft),border-color .16s var(--ease-soft);
+}
+.mine-row:hover{ background:var(--ink-2); border-color:var(--hair-2); }
+.mine-row:focus-visible{ outline:2px solid var(--lamp-line); outline-offset:2px; }
+.mine-row__icon{
+  display:flex; align-items:center; justify-content:center;
+  flex:0 0 20px; width:20px; height:20px;
+  color:var(--fg-2);
+  transition:color .16s var(--ease-soft);
+}
+.mine-row:hover .mine-row__icon{ color:var(--fg); }
+.mine-row__icon svg{ display:block; width:20px; height:20px; }
+.mine-row__text{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mine-row__chev{ display:flex; align-items:center; flex:0 0 18px; width:18px; height:18px; color:var(--fg-3); }
+.mine-row__chev svg{ display:block; width:18px; height:18px; }
+
+/* 详情态：顶部「返回 + 标题」，下面挂 #setBody（app.js 整块搬运） */
+.mine-detail__head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:2px 0 14px;
+  min-width:0;
+}
+.mine-detail__title{
+  margin:0;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:var(--fg);
+  font-size:15px;
+  font-weight:600;
+}
+.mine-detail__body{ min-width:0; }
+/* 抽屉里 .set-body 自带滚动与 22px 内边距；搬进子页后由 .mine-scroll 统一滚动、留白归零 */
+#mineDetailBody .set-body{ overflow:visible; padding:0; display:block; }
+#mineDetailBody .pane__title{ display:none; }
+#mineDetailBody .pane__sub{ margin:0 0 16px; }
+
+@media(max-width:640px){
+  .reading-stats{ margin:16px 18px; }
+  .reading-stat{ padding:18px; }
+  .mine-list,.mine-detail{ padding:0 18px; }
+  .mine-row{ min-height:48px; gap:10px; padding:0 12px; }
+}

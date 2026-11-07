@@ -1,0 +1,928 @@
+/* =========================================================================
+ * online.css — 「发现」：顶栏导航、搜索、结果、详情、书源抽屉
+ *   沿用墨刻的令牌：深墨底、纸白字、暖琥珀只做强调，全部细线分隔。
+ * ========================================================================= */
+
+/* ---------------- 顶栏导航 ---------------- */
+.nav{
+  display:flex; align-items:center; gap:2px;
+  margin-left:14px; height:100%;
+  -webkit-app-region:no-drag;
+}
+.nav__tab{
+  position:relative;
+  height:100%; padding:0 12px;
+  background:none; border:0; cursor:pointer;
+  font-family:var(--sans); font-size:13.5px; letter-spacing:.02em;
+  color:var(--fg-3);
+  transition:color .16s var(--ease-soft);
+  -webkit-app-region:no-drag;
+}
+.nav__tab:hover{ color:var(--fg-2); }
+.nav__tab.on{ color:var(--fg); }
+.nav__tab.on::after{
+  content:""; position:absolute; left:10px; right:10px; bottom:0; height:2px;
+  background:var(--lamp); border-radius:2px 2px 0 0;
+  box-shadow:0 0 10px rgba(224,176,123,.35);
+}
+
+/* ---------------- 版式 ---------------- */
+.online{
+  flex:1; overflow-y:auto; overscroll-behavior:contain;
+  /* 网格在窄窗口里只能缩列，不能把内容撑出横向滚动条 */
+  overflow-x:hidden;
+  padding:38px 0 70px;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,.16) transparent;
+}
+.online__inner{
+  max-width:960px; margin:0 auto; padding:0 var(--gutter);
+  animation:fadeIn .34s var(--ease) backwards;
+}
+
+/* 搜索框 */
+.search{
+  display:flex; align-items:center; gap:10px;
+  height:52px; padding:0 9px 0 16px;
+  background:var(--ink-1);
+  border:1px solid var(--hair-2);
+  border-radius:16px;
+  box-shadow:0 5px 18px rgba(0,0,0,.06);
+  transition:border-color .18s var(--ease-soft), background .18s var(--ease-soft);
+}
+.search:focus-within{ border-color:var(--lamp-line); background:var(--ink-2); }
+.search__icon{
+  width:16px; height:16px; flex:0 0 16px;
+  fill:none; stroke:var(--fg-4); stroke-width:1.4; stroke-linecap:round;
+  transition:stroke .18s var(--ease-soft);
+}
+.search:focus-within .search__icon{ stroke:var(--lamp); }
+/* base.css 给 input[type=text] 上了内嵌输入框的样式，搜索框要"透"出来 */
+.search input.search__input,
+.search input.search__input:focus{
+  flex:1; min-width:0; width:auto; height:100%;
+  padding:0; margin:0;
+  background:none; border:0; border-radius:0; box-shadow:none; outline:none;
+  font-family:var(--sans); font-size:14px; color:var(--fg);
+  -webkit-user-select:text; user-select:text;
+}
+.search__input::placeholder{ color:var(--fg-4); }
+.search__btn{ height:32px; padding:0 16px; flex:0 0 auto; }
+
+/* 状态条 */
+.online__bar{
+  display:flex; align-items:center; min-height:20px;
+  margin:16px 2px 6px;
+  font-size:12.5px; color:var(--fg-2);
+}
+.obar__text{ line-height:1.6; }
+.obar__more{
+  margin-left:12px; padding:2px 10px;
+  height:24px; flex:0 0 auto;
+  background:var(--lamp-wash);
+  border:1px solid var(--lamp-line); border-radius:999px;
+  color:var(--fg); font-size:11.5px; cursor:pointer;
+  transition:background .16s var(--ease-soft);
+}
+.obar__more:hover{ background:rgba(224,176,123,.16); }
+.is-warn{ color:var(--danger); }
+.is-ok{ color:var(--lamp); }
+.is-dim{ color:var(--fg-4); }
+/* 筛选判定：降级（黄）/ 未搜到（灰）/ 不确定（橙）；可用 is-ok、失效 is-warn 沿用 */
+.is-degraded{ color:#d8c25a; }
+.is-noresult{ color:var(--fg-3); }
+.is-unknown{ color:#e0904e; }
+.src-loglink{
+  flex:0 0 auto; padding:0 2px; border:0; background:none;
+  color:var(--fg-3); font-size:11.5px; cursor:pointer;
+  text-decoration:underline; text-underline-offset:2px;
+}
+.src-loglink:hover{ color:var(--lamp-2); }
+
+/* ---------------- 空态 / 骨架 ---------------- */
+.online__body{ min-height:340px; }
+
+.oempty{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:96px 20px 40px; text-align:center;
+  animation:fadeIn .4s var(--ease) backwards;
+}
+.oempty--soft{ padding-top:72px; }
+.oempty__mark{
+  width:22px; height:22px; border-radius:50%;
+  box-shadow:inset -6px 3px 0 0 var(--fg-4);
+  transform:rotate(-12deg); margin-bottom:22px;
+}
+.oempty__title{
+  margin:0 0 22px; font-family:var(--serif); font-size:17px;
+  letter-spacing:.04em; color:var(--fg-2);
+}
+.oempty .btn{ height:34px; }
+
+.oskeleton{ padding-top:6px; }
+.oskeleton__row{
+  display:flex; flex-direction:column; gap:10px;
+  padding:20px 2px; border-bottom:1px solid var(--hair);
+}
+.oskeleton__row i{
+  display:block; height:11px; border-radius:4px;
+  background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.09),rgba(255,255,255,.05));
+  background-size:200% 100%;
+  animation:shimmer 1.4s linear infinite;
+}
+.oskeleton__row i:first-child{ width:42%; }
+.oskeleton__row i:last-child{ width:66%; height:9px; }
+@keyframes shimmer{ from{ background-position:180% 0 } to{ background-position:-80% 0 } }
+
+/* ---------------- 结果列表 ---------------- */
+.olist{ display:flex; flex-direction:column; }
+.oitem{
+  display:flex; align-items:flex-start; gap:18px;
+  padding:16px 4px 15px;
+  border-bottom:1px solid var(--hair);
+  cursor:pointer;
+  transition:background .16s var(--ease-soft);
+  animation:riseIn .3s var(--ease) backwards;
+}
+.oitem:hover{ background:rgba(255,255,255,.022); }
+.oitem:focus-visible{ outline:1px solid var(--lamp-line); outline-offset:-1px; }
+.oitem__main{ flex:1; min-width:0; }
+.oitem__title{
+  margin:0 0 5px;
+  font-family:var(--serif); font-size:16.5px; font-weight:500;
+  letter-spacing:.02em; color:var(--fg);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  transition:color .16s var(--ease-soft);
+}
+.oitem:hover .oitem__title{ color:var(--lamp-2); }
+.oitem__meta{
+  display:flex; align-items:center; gap:7px;
+  margin:0; font-size:12.5px; color:var(--fg-3);
+}
+.oitem__dot{
+  display:inline-block; width:2px; height:2px; border-radius:50%;
+  background:var(--fg-4); flex:0 0 2px;
+}
+.oitem__src{ color:var(--fg-4); }
+.oitem__intro{
+  margin:7px 0 0; font-size:12.5px; line-height:1.7; color:var(--fg-2);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.oitem__last{
+  flex:0 0 auto; max-width:30%;
+  font-size:12px; color:var(--fg-4);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  padding-top:3px;
+}
+
+/* ---------------- 详情 ---------------- */
+.odetail{ animation:riseIn .34s var(--ease) backwards; padding-top:4px; }
+.odetail__back{ margin:0 0 18px -10px; height:28px; font-size:12.5px; color:var(--fg-3); }
+.odetail__back:hover{ color:var(--fg); }
+.odetail__title{
+  margin:0 0 10px;
+  font-family:var(--sans); font-size:30px; font-weight:600;
+  line-height:1.3; color:var(--fg);
+  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+  overflow:hidden; white-space:normal;
+}
+.odetail__meta{
+  display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+  margin:0 0 20px; font-size:12.5px; color:var(--fg-3);
+}
+.odetail__loading{ margin:26px 0; font-size:12.5px; color:var(--fg-4); }
+.odetail__err{ margin:18px 0; font-size:12.5px; color:var(--danger); }
+
+.odetail__intro{
+  margin:16px 0 6px; padding:16px 18px;
+  background:var(--ink-1); border:1px solid var(--hair); border-radius:16px;
+  font-size:13px; line-height:2; color:var(--fg-2);
+  white-space:pre-wrap;
+  display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.odetail__intro.is-open{ display:block; }
+.odetail__more{
+  margin:0 0 18px; padding:4px 0 4px 4px;
+  background:none; border:0; cursor:pointer;
+  font-size:12px; letter-spacing:.04em; color:var(--fg-3);
+  transition:color .16s var(--ease-soft);
+}
+.odetail__more:hover{ color:var(--lamp); }
+
+.odetail__actions{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:18px 0 22px;
+  border-top:1px solid var(--hair);
+  border-bottom:1px solid var(--hair);
+}
+.odetail__actions .btn--primary{ height:36px; padding:0 20px; }
+.odetail__actions .btn{ height:36px; }
+.odetail__hint{ font-size:12px; color:var(--fg-4); }
+.odetail__switch{
+  margin-left:6px; padding:2px 8px;
+  background:rgba(224,176,123,.06);
+  border:1px solid var(--lamp-line); border-radius:6px;
+  color:var(--lamp-2); font-size:11.5px; cursor:pointer;
+  transition:background .16s var(--ease-soft);
+}
+.odetail__switch:hover{ background:rgba(224,176,123,.14); }
+
+.odetail__toc{
+  margin-top:20px; padding:16px 18px;
+  background:var(--ink-1); border:1px solid var(--hair); border-radius:16px;
+}
+.odetail__tochead{
+  margin:0 0 8px; font-size:11.5px; letter-spacing:.08em; color:var(--fg-4);
+}
+.odetail__toc ul{ list-style:none; margin:0; padding:0; }
+.odetail__toclist{ max-height:420px; overflow-y:auto; }
+.odetail__toc li{
+  padding:9px 2px; border-bottom:1px solid var(--hair);
+  font-size:13px; color:var(--fg-2);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.odetail__toc li:last-child{ border-bottom:0; }
+
+/* ---------------- 书源抽屉 ---------------- */
+.src-filter{
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  padding:12px 18px 4px;
+}
+.src-filter .chip{
+  display:inline-flex; align-items:center; gap:5px;
+  height:26px; padding:0 10px;
+  background:transparent; border:1px solid var(--hair-2); border-radius:999px;
+  color:var(--fg-3); font-size:12px; cursor:pointer;
+  transition:color .16s var(--ease-soft), border-color .16s var(--ease-soft), background .16s var(--ease-soft);
+}
+.src-filter .chip:hover{ color:var(--fg-2); border-color:var(--hair-3); }
+.src-filter .chip.on{
+  color:var(--lamp-2); border-color:var(--lamp-line); background:rgba(224,176,123,.08);
+}
+.src-filter .chip__n{ font-size:11px; color:var(--fg-4); }
+.src-filter .chip.on .chip__n{ color:var(--lamp); }
+/* r1-t5：状态 chip 的计数复用列表里那五种状态色（is-ok / is-warn / is-noresult），
+   筛选栏和列表配色对得上；选中态仍统一走 .chip.on 的墨刻黄，不跟状态色打架 */
+.src-filter .chip[data-filter="ok"] .chip__n{ color:var(--lamp); }
+.src-filter .chip[data-filter="bad"] .chip__n{ color:var(--danger); }
+.src-filter .chip[data-filter="noresult"] .chip__n{ color:var(--fg-3); }
+
+/* 左栏源 chip 的两种真实状态（bookstore.js sourceState()）：
+   已停用 = 不可点；无推荐页 = 仍可选。两者都是能解释清楚的正常状态，
+   所以只做弱化（虚线边 + 降色），不要借 --danger 把「已停用」画成错误。 */
+.chip.is-off{
+  color:var(--fg-4); border-color:var(--hair-2); border-style:dashed;
+  opacity:.72; cursor:not-allowed;
+}
+.chip.is-off:hover{ color:var(--fg-4); border-color:var(--hair-2); background:transparent; }
+.chip.is-plain{ border-style:dashed; }
+.chip.is-plain:not(.on){ color:var(--fg-3); }
+.chip:disabled{ cursor:not-allowed; }
+/* 选中优先于状态：选中的源哪怕停用/无推荐页，也保持墨刻黄实线可辨 */
+.chip.on.is-off, .chip.on.is-plain{
+  border-style:solid; border-color:var(--lamp-line);
+  background:var(--lamp-wash); opacity:1;
+}
+.chip__name{
+  min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.chip__state{
+  flex:0 0 auto; font-size:10.5px; letter-spacing:.02em;
+  color:var(--fg-4); opacity:.9;
+}
+.chip[data-state="已停用"] .chip__state{ color:var(--fg-4); }
+.chip[data-state="无推荐页"] .chip__state{ color:var(--fg-3); }
+.chip.on .chip__state{ color:var(--lamp); }
+
+/* ---------------------------------------------------------------- 书城两列（按用户手绘稿）：左栏窄源名列表 + 内联分类 / 右栏搜索框 + 四列书卡 */
+/* 书城比发现页需要更宽的版心：960px 下四列只剩 150px 卡宽，封面会小到看不清 */
+#bookstoreView .online__inner{ max-width:1180px; }
+/* 用户要求「不要有留白，顶格过去」：书城内容紧贴顶栏，左栏源列表去掉 .src-filter 的内距 */
+#bookstoreView .online{ padding-top:14px; }
+#bookstoreView .src-filter{ padding:0; }
+.bookstore-layout{
+  display:grid;
+  /* 用户嫌 208px 还太宽：按版本内容宽的 17% 走（1280 版心下约 176px），
+     minmax 的 168px 只是窄窗兜底，保证源名 + 「N类」还能挤在一行里 */
+  grid-template-columns:minmax(156px,17%) minmax(0,1fr);
+  align-items:start;
+  column-gap:0; row-gap:24px;
+}
+.bookstore-rail{
+  position:sticky; top:0;
+  display:flex; flex-direction:column;
+  min-width:0;
+  max-height:calc(100vh - 190px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,.16) transparent;
+  padding-right:2px;
+}
+/* 栏里没有搜索框：第一行直接是源名。源行是纯文本行（源名 + 右侧灰字「N类」），只有选中行展开分类 */
+.bsrc{ display:flex; flex-direction:column; gap:2px; min-width:0; padding-bottom:8px; }
+
+/* 源行：一行 = 源名 + 右侧灰色「N类」；只有选中的那一行展开分类区 */
+.bsrc__list{ display:flex; flex-direction:column; min-width:0; }
+.bsrc__row{
+  position:relative;
+  display:flex; align-items:center; gap:8px;
+  width:100%; height:32px; padding:0 8px;
+  background:transparent; border:0; border-radius:7px;
+  font-family:var(--sans); font-size:13px; color:var(--fg);
+  text-align:left; cursor:pointer;
+  transition:background .14s var(--ease-soft), color .14s var(--ease-soft);
+}
+.bsrc__row:hover{ background:var(--hair); color:var(--fg); }
+.bsrc__row .bsrc__mark{
+  position:absolute; left:0; top:9px; bottom:9px; width:2px; border-radius:2px;
+  background:transparent; transition:background .14s var(--ease-soft);
+}
+.bsrc__row.on{ background:var(--lamp-wash); color:var(--fg); font-weight:600; }
+.bsrc__row.on .bsrc__mark{ background:var(--lamp); }
+/* 停用/无推荐页仍是可读的灰字：--fg-3 在 ink/night/solar/kazumi-light 只有 3.85-4.21、--fg-4 更差，
+   所以灰字统一收到 --fg-2（九主题最低 4.87），层级靠字号与字重而不是靠继续压暗 */
+.bsrc__row.is-off{ color:var(--fg-2); cursor:not-allowed; }
+.bsrc__row.is-off:hover{ background:transparent; }
+.bsrc__row.is-plain{ color:var(--fg-2); }
+.bsrc__row:focus-visible{ outline:2px solid var(--lamp-line); outline-offset:1px; }
+/* [hidden] 的 display:none 会被上面的 display:flex/block 盖掉，隐藏语义要显式保住 */
+.bsrc__row[hidden],
+.bookstore-categories[hidden]{ display:none !important; }
+.bsrc__name{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bsrc__flag{ flex:0 0 auto; font-size:10.5px; color:var(--fg-2); }
+.bsrc__count{ flex:0 0 auto; font-size:11px; color:var(--fg-2); font-variant-numeric:tabular-nums; }
+.bsrc__row.on .bsrc__count{ color:var(--fg-2); }
+
+/* 内联展开区：紧跟在选中源下面，左边一条细导引线把「分类属于这个源」画出来 */
+.bsrc__panel{
+  display:flex; flex-direction:column; min-width:0;
+  /* 分类与上面的源名左对齐（同一个 8px 缩进），不再额外画导引线 */
+  width:100%; margin:1px 0 4px 0; padding:0 0 6px 0;
+}
+.bookstore-categories{ display:flex; flex-direction:column; gap:1px; min-width:0; padding:0; }
+.bsrc__cat{
+  display:block; width:100%; height:26px; padding:0 8px;
+  background:transparent; border:0; border-radius:7px;
+  font-family:var(--sans); font-size:12px; color:var(--fg-2);
+  text-align:left; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  transition:background .14s var(--ease-soft), color .14s var(--ease-soft);
+}
+.bsrc__cat:hover{ background:var(--hair); color:var(--fg); }
+.bsrc__cat.on{ background:var(--lamp-wash); color:var(--fg); font-weight:500; }
+
+/* 右栏顶部：横贯内容区的搜索框（在当前书源里搜，行为由 bookstore.js 接） */
+.bsearch{ min-width:0; margin:0 0 14px; }
+.bsearch__input{
+  display:block; width:100%; height:36px; margin:0; padding:0 13px;
+  box-sizing:border-box;
+  -webkit-appearance:none; appearance:none;
+  background:var(--ink-1);
+  border:1px solid var(--hair);
+  border-radius:10px;
+  outline:none; font-family:var(--sans); font-size:13px; color:var(--fg);
+  transition:border-color .16s var(--ease-soft), background .16s var(--ease-soft);
+}
+.bsearch__input::placeholder{ color:var(--fg-2); }
+.bsearch__input:focus{ border-color:var(--lamp-line); background:var(--ink-2); }
+.bsearch__input::-webkit-search-cancel-button{ -webkit-appearance:none; display:none; }
+
+/* 右栏抬头：分类名 / 更淡的说明（bodyHead() 已不再输出「源名·源备注」那行，规则一并删掉） */
+.bhead{ margin:0 0 14px; min-width:0; }
+.bhead__title{ margin:0; font-size:15px; font-weight:650; color:var(--fg); letter-spacing:-.01em; }
+.bhead__note{ margin:3px 0 0; font-size:11.5px; color:var(--fg-2); letter-spacing:.01em; }
+.bookstore-main{
+  /* 用户要求「书源分界线」：左右两栏之间一条细竖线，跨整个内容高度 */
+  border-left:1px solid var(--hair-3);
+  padding-left:26px; min-width:0; }
+.bookstore-main .online__bar{ margin-top:0; }
+
+/* 书卡：四列、封面 3:4、书名/作者/简介两行——稿上不要的信息（最近章节、来源名）在书城区隐藏 */
+.bookstore-main .olist{ grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px 16px; margin:12px 0 40px; }
+.bookstore-main .obook{ padding:9px; gap:9px; border-radius:14px; }
+.bookstore-main .obook__meta{ color:var(--fg-2); }
+.bookstore-main .obook__meta .oitem__dot,
+.bookstore-main .obook__meta .oitem__src{ display:none; }
+.bookstore-main .obook .oitem__intro{ margin:6px 0 0; font-size:12px; color:var(--fg-2); }
+
+/* 窄窗口回退成单列：208px 的左栏一直保留到 640px（用户稿里左栏始终在），再窄才收到正文上方 */
+@media (max-width:640px){
+  .bookstore-layout{ grid-template-columns:minmax(0,1fr); gap:16px; }
+  .bookstore-rail{ position:static; max-height:none; overflow:visible; }
+  .bsrc__list{ flex-direction:row; flex-wrap:wrap; gap:6px; }
+  .bsrc__row{ width:auto; max-width:100%; padding:0 10px; }
+  .bsrc__row .bsrc__mark{ display:none; }
+  .bsrc__panel{ width:100%; padding-left:0; }
+  .bookstore-categories{ flex-direction:row; flex-wrap:wrap; }
+  .bsrc__cat{ width:auto; }
+}
+
+.src-list{ flex:1; overflow-y:auto; padding:6px 18px 10px; }
+.src-empty{
+  margin:40px 4px; font-size:12.5px; line-height:2; color:var(--fg-4);
+}
+.src-item{
+  display:flex; align-items:center; gap:10px;
+  padding:14px 2px;
+  border-bottom:1px solid var(--hair);
+}
+.src-item.on{ background:rgba(224,176,123,.04); }
+.src-item__check{
+  flex:0 0 16px; width:16px; height:16px; padding:0; margin:0;
+  background:transparent; border:1px solid var(--hair-3); border-radius:4px;
+  cursor:pointer; position:relative;
+  transition:border-color .14s var(--ease-soft), background .14s var(--ease-soft);
+}
+.src-item__check:hover{ border-color:var(--lamp-line); }
+.src-item__check.on{ background:var(--lamp); border-color:var(--lamp); }
+.src-item__check.on::after{
+  content:""; position:absolute; left:4px; top:1.5px;
+  width:6px; height:9px; border:solid #1a1408; border-width:0 2px 2px 0;
+  transform:rotate(42deg);
+}
+.src-item__main{ flex:1; min-width:0; }
+.src-item__name{
+  margin:0 0 3px; font-size:13.5px; color:var(--fg);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.src-item__url{
+  margin:0; font-size:11.5px; color:var(--fg-4);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.src-item__status{ margin:4px 0 0; font-size:11.5px; color:var(--fg-4); line-height:1.5; }
+.src-item .btn--tiny{ height:26px; padding:0 9px; font-size:11.5px; }
+.src-item__capability{ display:block; max-width:100%; margin-top:6px; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+
+/* 小开关 */
+.src-item .switchswitch{ position:relative; flex:0 0 34px; width:34px; height:20px; cursor:pointer; }
+.src-item .switchswitch input{ position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; }
+.src-item .switchswitch i{
+  position:absolute; inset:0; border-radius:999px;
+  background:var(--ink-4); border:1px solid var(--hair-2);
+  transition:background .18s var(--ease-soft), border-color .18s var(--ease-soft);
+}
+.src-item .switchswitch i::after{
+  content:""; position:absolute; top:2px; left:2px;
+  width:14px; height:14px; border-radius:50%;
+  background:var(--fg-4);
+  transition:transform .2s var(--ease), background .18s var(--ease-soft);
+}
+.src-item .switchswitch input:checked + i{ background:rgba(224,176,123,.20); border-color:var(--lamp-line); }
+.src-item .switchswitch input:checked + i::after{ transform:translateX(14px); background:var(--lamp); }
+
+.src-foot{
+  flex:0 0 auto;
+  display:flex; flex-direction:column; gap:8px;
+  padding:14px 18px 18px;
+  border-top:1px solid var(--hair);
+}
+.src-foot__row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.src-foot .btn{ height:30px; font-size:12px; flex:0 1 auto; }
+.src-foot__row .btn--primary{ flex:1 1 auto; }
+
+.src-paste{ padding:12px 18px 0; }
+.src-paste textarea{
+  width:100%; height:132px; resize:vertical;
+  padding:10px 12px;
+  background:var(--ink-2); color:var(--fg);
+  border:1px solid var(--hair-2); border-radius:10px;
+  font-family:ui-monospace,Consolas,monospace; font-size:11.5px; line-height:1.6;
+  outline:none;
+  -webkit-user-select:text; user-select:text;
+}
+.src-paste textarea:focus{ border-color:var(--lamp-line); }
+.src-paste__row{ display:flex; gap:8px; margin:10px 0 0; }
+.src-paste__row .btn{ height:30px; font-size:12px; }
+
+/* 页面内的源 / 分类筛选条（发现、书城）：贴住内容边距，芯片超长时省略而不是撑破容器。
+   抽屉里的 #sourceFilter 不在 .online__inner 下，仍用上面的抽屉内边距。 */
+/* 芯片永远不超过所在容器宽度：超长源名交给 .chip__name 省略，避免把栏位撑出横向滚动。 */
+.chip{ max-width:100%; }
+.online__inner > .src-filter{ margin:0; padding:14px 2px 2px; }
+
+/* 窄窗口 */
+@media (max-width:760px){
+  .online{ padding-top:26px; }
+  .oitem__last{ display:none; }
+  .odetail__title{ font-size:24px; }
+}
+
+/* 关掉动效时骨架屏别闪 */
+html.no-motion .oskeleton__row i{ animation:none; }
+
+/* ---------------------------------------------------------------- 搜索结果（聚合书 + 封面网格） */
+.olist{
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  gap:18px 16px; margin:12px 0 40px;
+}
+.obook{
+  display:flex; flex-direction:column; align-items:stretch; gap:10px;
+  min-width:0; padding:10px; margin:0;
+  background:var(--ink-1); border:1px solid var(--hair);
+  cursor:pointer; border-radius:16px; box-shadow:0 5px 18px rgba(0,0,0,.07);
+  transition:background .18s var(--ease),border-color .18s var(--ease);
+  animation:riseIn .3s var(--ease) backwards;
+}
+.obook:hover{ background:var(--ink-2); border-color:var(--hair-2); }
+.obook:focus-visible{ outline:1px solid var(--lamp-line); outline-offset:2px; }
+.obook__cover{
+  flex:0 0 auto; width:100%; height:auto; aspect-ratio:3/4; border-radius:12px;
+  object-fit:cover; background:var(--ink-3); box-shadow:none;
+}
+/* 无封面占位：不能留白——给主题底色 + 描边，再压一行「无封面」灰字（灰字同样走 --fg-2） */
+.obook__cover--none{
+  position:relative;
+  display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(150deg,var(--lamp-wash),var(--ink-3) 68%);
+  border:1px solid var(--hair-2);
+}
+.obook__cover--none::after{
+  content:"无封面";
+  font-family:var(--sans); font-size:11.5px; letter-spacing:.08em; color:var(--fg-2);
+}
+/* 热榜：封面没拿到之前什么都不显示——不要灰底描边的「无封面」占位块。
+   高度仍由 aspect-ratio 撑住，这样封面到达时是原地出现，列表不会跳动。 */
+.ohotrank .obook__cover--none{
+  background:none; border:0;
+}
+.ohotrank .obook__cover--none::after{ content:none; }
+.obook__main{ flex:1; min-width:0; width:100%; padding:0 2px 2px; }
+.obook__title{
+  min-height:2.9em; margin:0 0 5px; font-family:var(--sans); font-weight:600;
+  font-size:14px; line-height:1.45; color:var(--fg);
+  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+  overflow:hidden; white-space:normal;
+}
+.obook:hover .obook__title{ color:var(--lamp-2); }
+.obook__meta{
+  margin:0; display:flex; align-items:center; flex-wrap:wrap; gap:6px;
+  font-size:11.5px; color:var(--fg-2);
+}
+.obook__meta .oitem__src{ min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.obook__n{ color:var(--lamp); }
+.obook .oitem__intro{
+  margin:7px 0 0; font-size:12px; line-height:1.6; color:var(--fg-4); white-space:normal;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+
+/* ---------------------------------------------------------------- 发现页热门区（真实热门分类） */
+/* 书卡直接复用 .olist/.obook 网格，这里只定义区块层级、标题/源名间距和窄窗口下的收敛，
+   不重写卡片自身的 hover、封面比例与文字截断。 */
+.ofeed{ min-width:0; margin:0 0 34px; }
+.ofeed[data-feed-section="hot"]{ margin-top:2px; }
+.ofeed > .odetail__tochead{
+  margin:0 0 2px;
+  font-size:12px; letter-spacing:.08em; color:var(--fg-3);
+}
+.ofeed > .oitem__src{
+  margin:0 0 8px;
+  font-size:11.5px; letter-spacing:.02em;
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.ofeed > .olist{ margin:10px 0 26px; }
+/* 热门加载失败 / 空分类：比整页空态更紧凑，原始错误码左对齐、允许换行，便于直接读文案 */
+.ofeed > .oempty{
+  align-items:flex-start; justify-content:flex-start; text-align:left;
+  padding:22px 0 26px;
+}
+.ofeed > .oempty > .oempty__title{ margin:0 0 10px; font-size:15px; }
+.ofeed > .oempty > .oitem__intro{
+  margin:0; max-width:640px;
+  white-space:normal; overflow:visible; text-overflow:clip;
+  font-size:12px; line-height:1.75; color:var(--fg-3);
+}
+.ofeed #btnFeedRetry{ height:32px; margin-top:14px; padding:0 18px; }
+
+/* 热榜：发现页最上方，下面紧跟「热门」feed（也是 .ofeed）。
+   底部留 10px 再压一条 --hair-3 细线，让两个推荐区块一眼分得开；
+   细线用现有 hair 令牌，不新造颜色。 */
+.ohotrank{ padding-bottom:10px; margin:0 0 12px; border-bottom:1px solid var(--hair-3); }
+.ohotrank > .olist{ margin-bottom:14px; }
+/* 渠道 chip 横向一行，**始终显示细横向滚动条**（用户反馈「看不到还有更多」）。
+   实现说明：.online 上设了 scrollbar-width:thin 会继承下来，Chromium 只要 scrollbar-width
+   是显式值就忽略 ::-webkit-scrollbar 的尺寸，所以这里直接用标准写法 scrollbar-width:thin
+   配 scrollbar-color（实测 10px、始终可见、不悬停也看得见），颜色走 --hair-3/--fg-4。 */
+/* 渠道 chip 一行 + 右侧刷新按钮。chip 行自己横向滚动，刷新按钮固定在行尾不跟着滚。 */
+.ohotrank__head{
+  display:flex; align-items:flex-start; gap:8px;
+  min-width:0; margin:2px 0 10px;
+}
+.ohotrank__chips{
+  display:flex; flex-wrap:nowrap; gap:8px;
+  flex:1 1 auto; min-width:0; max-width:100%;
+  margin:0; padding:2px 0 4px;   /* 底部留 4px，滚动条不压 chip */
+  overflow-x:auto; overflow-y:hidden;
+  overscroll-behavior-x:contain;
+  scrollbar-width:thin;
+  scrollbar-color:var(--hair-3) transparent;
+}
+.ohotrank__chips > .chip{ flex:0 0 auto; white-space:nowrap; color:var(--fg-2); }
+/* 未选中 chip 在深色主题里 --fg-3 只有 3.8:1；选中用 --fg 而不是 --lamp-2（亮底主题下 --lamp-2 不足 2:1） */
+.ohotrank__chips > .chip.on{ color:var(--fg); }
+
+/* 刷新榜单：跟 chip 同一行、同高，图标自己转 */
+.ohotrank__refresh{
+  flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
+  width:32px; height:32px; margin-top:1px;
+  border:1px solid var(--hair); border-radius:7px;
+  background:var(--ink-1); color:var(--fg-2);
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+.ohotrank__refresh:hover{ color:var(--fg); }
+.ohotrank__refresh:disabled{ cursor:default; opacity:.55; }
+.ohotrank__refresh.is-busy svg{ animation:ohotrank-spin .9s linear infinite; }
+@keyframes ohotrank-spin{ from{ transform:rotate(0) } to{ transform:rotate(360deg) } }
+@media (prefers-reduced-motion: reduce){ .ohotrank__refresh.is-busy svg{ animation:none; } }
+
+/* 详情头部 + 封面 + 可用源 */
+.odetail__top{
+  display:grid; grid-template-columns:168px minmax(0,1fr); gap:24px; align-items:start;
+  padding:22px; background:var(--ink-1); border:1px solid var(--hair); border-radius:20px;
+  box-shadow:0 8px 24px rgba(0,0,0,.08);
+}
+.odetail__cover{
+  width:168px; height:auto; aspect-ratio:.7; border-radius:16px;
+  object-fit:cover; background:var(--ink-3); box-shadow:0 4px 14px rgba(0,0,0,.12);
+}
+.odetail__cover--none{
+  display:block; background:linear-gradient(150deg,var(--lamp-wash),var(--ink-3));
+}
+.odetail__head{ min-width:0; padding-top:4px; }
+.odetail__sources{
+  display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 0;
+  max-height:112px; overflow-y:auto;
+}
+.odetail__switch{ border-radius:999px; }
+.odetail__switch.on{
+  color:var(--lamp-2); border-color:var(--lamp-line);
+  background:var(--lamp-wash);
+}
+.odetail__loading{ margin:22px 0; font-size:12.5px; color:var(--fg-4); }
+.obar__text{ font-size:12px; color:var(--fg-3); letter-spacing:.02em; }
+/* feed 里的进度小字（「正在加载热榜… 4/10」）直接落在页面底色上，不是 .online__bar 的 --ink-2 底；
+   --fg-3 在 ink 4.18 / night 4.03 / kazumi-light 3.85，不足 4.5，这里抬到 --fg-2（九主题最低 4.87）。
+   必须排在上面那条基础规则之后：同特异性只靠源码顺序生效。 */
+.ofeed .obar__text{ color:var(--fg-2); }
+
+/* 筛选时按钮底部走一条进度条（不显示数字） */
+.btn.is-running{ position:relative; overflow:hidden; }
+.btn.is-running::after{
+  content:''; position:absolute; left:0; top:0; bottom:0;
+  width:var(--p, 0%);
+  background:currentColor;
+  opacity:.2;
+  transition:width .3s linear;
+  pointer-events:none;
+}
+.btn.is-running{ color:var(--btn-solid-fg); }
+
+/* 书源抽屉：搜索框 / 分组 */
+.src-search{ padding:0 18px 4px; }
+.src-search input{
+  width:100%; height:32px; box-sizing:border-box;
+  padding:0 10px; border-radius:8px;
+  border:1px solid var(--hairline); background:rgba(255,255,255,.03);
+  color:var(--fg); font-size:12.5px; outline:none;
+  transition:border-color .16s var(--ease);
+}
+.src-search input:focus{ border-color:var(--lamp-line); }
+.src-search input::placeholder{ color:var(--fg-4); }
+.src-groups{
+  display:flex; flex-wrap:wrap; gap:6px;
+  padding:6px 18px 8px; max-height:84px; overflow-y:auto;
+}
+.src-groups:empty{ display:none; }
+.chip--group{ font-size:11.5px; padding:2px 9px; }
+.chip--clear{ font-size:11.5px; padding:2px 9px; color:var(--fg-4); }
+
+/* 书源抽屉：收藏星 */
+.src-item__star{
+  flex:0 0 auto; width:26px; height:26px; padding:0; margin:0 2px 0 0;
+  border:0; background:transparent; cursor:pointer;
+  font-size:14px; line-height:1; color:var(--fg-4);
+  border-radius:6px; transition:color .16s var(--ease), background .16s var(--ease);
+}
+.src-item__star:hover{ color:var(--lamp); background:rgba(224,176,123,.1); }
+.src-item__star.on{ color:var(--lamp); }
+
+/* ---------------- 获取书源（散源 / 合集） ---------------- */
+.gs{ position:fixed; inset:0; z-index:90; display:flex; align-items:center; justify-content:center; }
+.gs[hidden]{ display:none; }
+.gs__mask{ position:absolute; inset:0; background:rgba(0,0,0,.55); backdrop-filter:blur(2px); }
+.gs__panel{
+  position:relative; width:min(92vw, 560px); max-height:min(86vh, 720px);
+  display:flex; flex-direction:column;
+  background:var(--ink-1); border:1px solid var(--hair-2); border-radius:14px;
+  box-shadow:0 24px 60px rgba(0,0,0,.55);
+  animation:riseIn .24s var(--ease) backwards;
+}
+.gs__head{
+  flex:0 0 auto; display:flex; align-items:center; gap:10px;
+  padding:14px 14px 10px 18px; border-bottom:1px solid var(--hair);
+}
+.gs__title{ font-family:var(--serif); font-size:16px; color:var(--fg); flex:1; }
+.gs__body{ flex:1; overflow-y:auto; padding:16px 18px 20px; }
+.gs__hint{ margin:0 0 14px; font-size:12px; line-height:1.8; color:var(--fg-3); }
+.gs__hint--warn{ color:var(--lamp); }
+.gs__menu{ display:flex; gap:12px; }
+.gs__opt{
+  flex:1; text-align:left; cursor:pointer;
+  padding:18px 16px; border-radius:12px;
+  background:var(--ink-2); border:1px solid var(--hair-2);
+  transition:border-color .16s var(--ease), background .16s var(--ease);
+}
+.gs__opt:hover{ border-color:var(--lamp-line); background:var(--ink-3); }
+.gs__opt b{ display:block; font-size:15px; color:var(--fg); margin-bottom:6px; font-weight:600; }
+.gs__opt span{ font-size:12px; color:var(--fg-4); }
+.gs__row{ display:flex; align-items:center; gap:10px; margin:0 0 12px; }
+.gs__back{
+  border:0; background:transparent; cursor:pointer;
+  font-size:12px; color:var(--fg-3); padding:2px 6px; border-radius:6px;
+}
+.gs__back:hover{ color:var(--lamp); background:var(--ink-2); }
+.gs__sub{ margin:0; font-size:14px; color:var(--fg); font-family:var(--serif); font-weight:500; }
+.gs__pages{ display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px; }
+.gs__go{ width:100%; height:38px; margin-bottom:10px; }
+.gs__status{ margin:2px 0 0; font-size:12px; color:var(--fg-4); line-height:1.7; min-height:1em; }
+.gs__list{ display:flex; flex-direction:column; }
+.gs__item{
+  display:flex; align-items:center; gap:12px;
+  padding:12px 8px; border-bottom:1px solid var(--hair);
+}
+.gs__item-main{ flex:1; min-width:0; }
+.gs__item-name{ margin:0 0 4px; font-size:13.5px; color:var(--fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gs__item-meta{ margin:0; font-size:11.5px; color:var(--fg-4); }
+@media (max-width:640px){ .gs__menu{ flex-direction:column; } }
+
+/* 当前书源 */
+.gs__src{ padding:4px 2px 12px; border-bottom:1px solid var(--hair); margin-bottom:14px; }
+.gs__src-name{ margin:0 0 8px; font-size:15px; color:var(--fg); font-family:var(--serif); }
+.gs__src-line{ margin:0 0 6px; font-size:12px; color:var(--fg-3); word-break:break-all; line-height:1.7; }
+.gs__src-btns{ display:flex; flex-wrap:wrap; gap:8px; }
+.gs__ok{ color:#7fbf8f; }
+.gs__bad{ color:var(--danger); }
+.gs__dim{ color:var(--fg-4); }
+.src-more{
+  margin:10px 4px 20px; font-size:11.5px; color:var(--fg-4); text-align:center;
+}
+/* 单条「测试」按钮用暖色描边，和整体按钮层级区分开 */
+.src-item [data-role="test"]{
+  border-color:var(--lamp-line); color:var(--lamp);
+}
+.src-item [data-role="test"]:hover{
+  background:rgba(224,176,123,.10); color:var(--lamp-2);
+}
+
+/* ---------------- 分组按钮三行重排 + 归入组 / 黑名单小窗 ---------------- */
+/* 第二行「新建组 / 编辑组 / 归入组」按钮行 */
+.src-foot__row--groups2{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+/* 小号弹层（归入组 / 黑名单） */
+.gs__panel--sm{ width:min(92vw, 380px); }
+/* 归入组列表里可点的行 */
+.gs__item--pick{
+  width:100%; text-align:left; cursor:pointer;
+  border:0; border-bottom:1px solid var(--hair);
+  background:transparent; border-radius:8px;
+  font:inherit;
+}
+.gs__item--pick:hover{ background:var(--ink-2); }
+/* 黑名单小窗：搜索栏 + 底部一键清除 */
+.bl-search{ margin-bottom:12px; }
+.bl-search input{
+  width:100%; height:34px; padding:0 12px;
+  background:var(--ink-2); border:1px solid var(--hair-2); border-radius:9px;
+  color:var(--fg); font-size:13px; outline:none;
+}
+.bl-search input:focus{ border-color:var(--lamp-line); }
+.bl-foot{ margin-top:14px; display:flex; justify-content:flex-end; }
+
+/* 中档宽度（发现页 / 搜索结果共用网格）：卡片下限从 150px 降到 132px，
+   避免 760px 上下四列被挤成窄条。必须放在基础 .olist 之后 —— @media 不抬高特异性，
+   同特异性只靠源码顺序生效；也要放在下面的 640 档之前，窄屏仍用 112px。 */
+@media (max-width:760px){
+  .olist{ grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:16px 14px; }
+  .ofeed > .olist{ margin:8px 0 22px; }
+}
+
+@media(max-width:640px){
+  .online__inner{ padding-right:18px; padding-left:18px; }
+  .olist{ grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:12px; }
+  .obook{ padding:8px; gap:8px; }
+  .odetail__top{ grid-template-columns:112px minmax(0,1fr); gap:16px; padding:16px; }
+  .odetail__cover{ width:112px; }
+  .odetail__title{ font-size:22px; }
+  .odetail__actions{ gap:8px; }
+}
+
+/* 窄窗（≤900px）：热榜区块收紧，chip 行仍是一行横向滚动，绝不撑出页面级横向滚动条 */
+@media (max-width:900px){
+  .ohotrank{ padding-bottom:8px; margin-bottom:10px; }
+  .ohotrank > .olist{ margin-bottom:12px; }
+  .ohotrank__head{ gap:6px; margin-bottom:9px; }
+  .ohotrank__chips{ gap:7px; margin-bottom:0; }
+  .ohotrank__refresh{ width:30px; height:30px; }
+}
+
+/* 书城书卡网格回退：必须写在 .bookstore-main .olist 的基础规则之后，
+   @media 不抬高特异性，靠源码顺序生效（这份 CSS 的已知陷阱）。 */
+/* 单卡 ≥180 的口径不变，断点按「左栏 20% + 40px 页边距」重算：
+   版心宽 C≈视口−180，右栏 = C − max(168, 20%C) − 24。
+   · 四列需右栏 ≥768 → 视口 ≥1170
+   · 三列需右栏 ≥568 → 视口 ≥940（此时 rail 已触底 168）
+   · 两列需右栏 ≥372 → 视口 ≥744，往下到 640 前仍是最窄一档（已知取舍） */
+@media (max-width:1169px){
+  .bookstore-main .olist{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px 14px; }
+}
+@media (max-width:939px){
+  .bookstore-main .olist{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 12px; }
+  .bookstore-main .obook{ padding:8px; gap:8px; }
+}
+@media (max-width:640px){
+  .bookstore-main .olist{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 12px; }
+}
+
+/* ============ 书源管理子页（原先的右侧抽屉已并入「我的 → 书源管理」） ============ */
+#sourceHost[hidden]{ display:none; }
+.srcpage{ display:flex; flex-direction:column; gap:10px; padding:0 0 8px; }
+.srcpage__head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+.srcpage__title{ font-size:13px; font-weight:600; letter-spacing:.04em; color:var(--fg-2); }
+.srcpage__count{ font-size:12px; color:var(--fg-3); }
+.srcpage .src-filter{ margin:0; padding:0; }
+.srcpage .src-search{ padding:0; }
+.srcpage .src-list{ flex:0 1 auto; overflow:visible; padding:0; }
+.srcpage .src-foot{ padding:14px 0 0; border-top:1px solid var(--hair); }
+
+
+/* ============ 书源管理：入口列表 + 子页 ============ */
+.srcpane[hidden]{ display:none; }
+.srcpane{ display:flex; flex-direction:column; gap:10px; padding:2px 0 6px; }
+.src-tools{ display:flex; align-items:center; gap:8px; }
+.src-tools #srcSearch{ flex:1; min-width:0; }
+.src-tools .btn{ height:32px; font-size:12.5px; flex:0 0 auto; }
+.src-hub-row{
+  display:flex; align-items:center; gap:12px; width:100%;
+  min-height:58px; padding:10px 14px; text-align:left;
+  background:var(--ink-1); border:1px solid var(--hair); border-radius:14px;
+  cursor:pointer; transition:background .14s var(--ease-soft), border-color .14s var(--ease-soft);
+}
+.src-hub-row:hover{ background:var(--ink-2); border-color:var(--hair-2); }
+.src-hub-row__text{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.src-hub-row__t{ font-size:14px; color:var(--fg); font-weight:500; }
+.src-hub-row__d{ font-size:12px; color:var(--fg-3); }
+.src-hub-row__chev{ flex:0 0 auto; font-size:18px; line-height:1; color:var(--fg-4); }
+.src-navlist{ display:flex; flex-direction:column; gap:10px; margin-top:4px; }
+.src-scan{ display:flex; gap:10px; }
+.src-scan__btn{ flex:1; height:auto; min-height:62px; flex-direction:column; gap:4px; padding:10px 12px; }
+.src-scan__hint{ font-size:11px; font-weight:400; color:rgba(26,20,8,.66); }
+.src-scan__status{
+  margin:0; padding:10px 12px; font-size:12px; line-height:1.7; color:var(--fg-2);
+  background:var(--ink-1); border:1px solid var(--hair); border-radius:12px;
+}
+.src-grouplist{ display:flex; flex-direction:column; gap:6px; }
+.src-group-row{
+  display:flex; align-items:center; gap:10px; width:100%;
+  min-height:44px; padding:0 14px; text-align:left;
+  background:var(--ink-1); border:1px solid var(--hair); border-radius:12px; cursor:pointer;
+}
+.src-group-row:hover{ background:var(--ink-2); }
+.src-group-row.on{ border-color:var(--lamp-line); background:var(--lamp-wash); }
+.src-group-row__name{ flex:1; min-width:0; font-size:13px; color:var(--fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.src-group-row__meta{ flex:0 0 auto; font-size:11.5px; color:var(--fg-3); }
+.srcpage .src-foot{ padding:10px 0 0; border-top:1px solid var(--hair); }
+
+.src-tools .btn--ghost{ border:1px solid var(--hair); }
+.src-tools .btn--ghost:hover{ border-color:var(--hair-2); background:var(--ink-2); }
+.chip--group .chip__n{ margin-left:5px; }
+
+/* 分组多选 */
+.src-group-row.sel{ border-color:var(--lamp-line); background:var(--lamp-wash); }
+.src-group-row__check{
+  flex:0 0 auto; width:15px; height:15px; margin-right:2px;
+  border:1px solid var(--hair-2); border-radius:4px; background:var(--ink-0);
+  position:relative;
+}
+.src-group-row__check.on{ background:var(--lamp); border-color:var(--lamp); }
+.src-group-row__check.on::after{
+  content:""; position:absolute; left:4px; top:1px; width:4px; height:8px;
+  border:solid var(--ink-0); border-width:0 2px 2px 0; transform:rotate(42deg);
+}
+.btn.is-on{ border-color:var(--lamp-line); color:var(--fg); background:var(--lamp-wash); }
+
+/* 检测范围三选一 */
+.src-scope{ display:flex; gap:6px; }
+.src-scope__opt{
+  flex:1; height:30px; padding:0 10px; font-size:12px; cursor:pointer;
+  color:var(--fg-3); background:var(--ink-1);
+  border:1px solid var(--hair); border-radius:9px;
+  transition:color .14s var(--ease-soft), border-color .14s var(--ease-soft), background .14s var(--ease-soft);
+}
+.src-scope__opt:hover{ color:var(--fg-2); border-color:var(--hair-2); }
+.src-scope__opt.on{
+  color:var(--fg); font-weight:500;
+  border-color:var(--lamp-line); background:var(--lamp-wash);
+}
+
+/* 书源管理：按钮下不再有说明小字 */
+.src-scan__btn{ min-height:52px; }
+.src-hub-row__n{ margin-left:auto; font-size:12.5px; color:var(--fg-3); }
