@@ -858,7 +858,7 @@
 
   function exitMpvMode() {
     try { if (NR.mpv && NR.mpv.back) NR.mpv.back(false); } catch (e) {}
-    if (S.mpvFull) { S.mpvFull = false; try { if (NR.mpv && NR.mpv.full) NR.mpv.full(false); } catch (e) {} }
+    if (S.mpvFull) { S.mpvFull = false; try { if (NR.mpv && NR.mpv.full) NR.mpv.full(false); } catch (e) {} appFull(false); }
     paintFullBtn();
     S.mpvMode = false;
     if (S.mpvTimer) { clearInterval(S.mpvTimer); S.mpvTimer = null; }
@@ -1375,6 +1375,8 @@
     document.documentElement.classList.remove('vv-noscroll');
     setOrient('auto');
     if (document.fullscreenElement) { try { document.exitFullscreen(); } catch (e) { } }
+    appFull(false);
+    S.mpvFull = false;
     dom.view.classList.add('hidden');
     var back = S.prevView || 'plg:cmstv:main';
     if (typeof global.NR.switchView === 'function') {
@@ -1396,6 +1398,16 @@
 
   /* 全屏：WebView 里 requestFullscreen 常常没反应（宿主没实现 onShowCustomView），
      所以直接铺满窗口（CSS .vv-stage.is-full），再顺手试一次原生全屏，失败也不影响。 */
+  /* 宿主级全屏：WebView 只占窗口客户区，网页铺满自己并不会让窗口变大，
+     所以真全屏要宿主改窗口 Bounds。宿主没有 winFullscreen（旧壳）时静默跳过。 */
+  function appFull(on) {
+    try {
+      var P = global.NR && global.NR.platform;
+      var wc = P && P.winControls;
+      if (wc && typeof wc.setFullscreen === 'function') wc.setFullscreen(!!on);
+    } catch (e) { }
+  }
+
   function toggleFull() {
     /* mpv 模式：网页这层只剩底部一条控制栏，铺满窗口是宿主的事 */
     if (S.mpvMode) {
@@ -1403,6 +1415,7 @@
       var goFull = !S.mpvFull;
       S.mpvFull = goFull;
       if (Mf && Mf.full) Mf.full(goFull);
+      appFull(goFull);
       paintFullBtn();
       wake();
       return;
@@ -1413,6 +1426,7 @@
       document.documentElement.classList.remove('vv-noscroll');
       setOrient('auto');
       if (document.fullscreenElement) { try { document.exitFullscreen(); } catch (e) { } }
+      appFull(false);
       setTimeout(paintSeek, 60);
       return;
     }
@@ -1420,6 +1434,7 @@
     dom.stage.classList.add('is-full');
     dom.view.classList.add('is-fakefull');
     document.documentElement.classList.add('vv-noscroll');
+    appFull(true);
     if (isMobile()) setOrient(fullscreenOrient());
     try {
       var p = dom.stage.requestFullscreen ? dom.stage.requestFullscreen() : null;

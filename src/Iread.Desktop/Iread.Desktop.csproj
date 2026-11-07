@@ -11,8 +11,8 @@
     <RootNamespace>Iread</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>icon.ico</ApplicationIcon>
-    <Version>1.0.0</Version>
-    <InformationalVersion>1.0.0-plugin.1</InformationalVersion>
+    <Version>1.0.1</Version>
+    <InformationalVersion>1.0.1</InformationalVersion>
     <Product>iread</Product>
     <AssemblyTitle>iread</AssemblyTitle>
     <Description>iread · WebView2 桌面版（支持插件、视频与漫画）</Description>

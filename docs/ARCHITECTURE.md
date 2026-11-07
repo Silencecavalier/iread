@@ -54,6 +54,14 @@ chrome.webview.postMessage({ __yedu: 1, id, method, args });
 
 渲染层全局挂载：`NR.store / NR.plugins / NR.video / NR.mpv / NR.legado / NR.cover / NR.hotrank / NR.bookstore / NR.dataTools / NR.state() / NR.switchView() / NR.androidBack()`。
 
+### 窗口控制
+
+无边框窗口的拖动与缩放由渲染层驱动：`NR.platform.winControls` 映射到宿主 `winMinimize / winToggleMax / winClose / winExit / closeChoice / winTray / winIsMax / winResize / winResizeEnd / winFullscreen`。
+
+- 拖动依赖 CSS：带 `data-win-drag="1"` 的元素及其祖先获得 `-webkit-app-region: drag`，其中的按钮、链接、输入框保持 `no-drag`。视图切换后须保证当前视图存在这样的元素，否则窗口无法拖动。
+- 全屏由宿主执行：`setFullscreen(true)` 记录当前 `WindowState` 与 `Bounds`，随后把窗口 `Bounds` 设为整块显示器的 `Screen.Bounds`；`false` 时还原，原先最大化则还原后重新最大化。返回 `{ ok, full, bounds }`。
+- `requestFullscreen()` 只影响 WebView 客户区，不改变窗口尺寸，因此不作为全屏手段。
+
 ## 网络
 
 - **HostFetch**：第三方请求统一由宿主代发，以便设置任意 `User-Agent` / `Referer`、跟随重定向、按 `NetworkEncoding.cs` 嗅探 GBK 等非 UTF-8 响应。

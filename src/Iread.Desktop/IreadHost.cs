@@ -62,6 +62,12 @@ internal static class IreadHost
     private static FormWindowState? _mpvPrevState;   // 全屏前的窗口状态
     private static Form _mpvBackForm;                 // 顶层小窗版返回键（真半透明）
     private static Label _mpvTopTitle;   // >0 表示「视频区 + 控制条」分栏（控制条用 WebView2 渲染）
+    /* 应用级全屏（winFullscreen）：视频页和插件页要把窗口铺满整块显示器时用。
+       FormBorderStyle=None 下 WindowState=Maximized 只到工作区（任务栏还在），
+       所以这里直接改 Bounds 到显示器全屏矩形，退出时还原原来的状态与位置。 */
+    private static bool _appFull;
+    private static Rectangle _appFullPrevBounds;
+    private static FormWindowState _appFullPrevState = FormWindowState.Normal;
 
     private static void Log(string line)
     {
@@ -1110,6 +1116,7 @@ internal static class IreadHost
       exit: function () { return call('winExit', []); },
       confirmClose: function (kind, remember) { return call('closeChoice', [String(kind || ''), remember ? '1' : '0']); },
       isMaximized: function () { return call('winIsMax', []); },
+      setFullscreen: function (on) { return call('winFullscreen', [!!on]); },
       startResize: function (dir) { return call('winResize', [dir]); },
       endResize: function () { return call('winResizeEnd', []); },
       onState: function (cb) {
@@ -1572,6 +1579,16 @@ internal static class IreadHost
                 case "winIsMax":
                     value = _form.WindowState == FormWindowState.Maximized;
                     break;
+                case "winFullscreen":
+                    {
+                        /* 真全屏：铺满当前显示器（任务栏也让位），退出还原。
+                           网页那套 .is-full / requestFullscreen 只能铺满 WebView 客户区，
+                           窗口还是原来大小，所以全屏必须由宿主改窗口尺寸。 */
+                        bool fsOn = false;
+                        try { fsOn = args.EnumerateArray().First().GetBoolean(); } catch { }
+                        value = AppSetFullscreen(fsOn);
+                        break;
+                    }
                 case "winResize":
                     {
                         // P：Bug1 最终修复——渲染层 8 条 .rz 热区 mousedown 上报方向，
@@ -1954,6 +1971,50 @@ internal static class IreadHost
                 try { _wv.Focus(); } catch { }
             }));
             return new { ok = true };
+        }
+        catch (Exception ex) { return new { ok = false, error = ex.Message }; }
+    }
+
+    /* 应用级全屏：把窗口铺满当前显示器（含任务栏区域），退出时还原状态与位置。
+       返回 { ok, full, bounds:[x,y,w,h] }，渲染层和调试脚本可以据此判断是否真的生效。 */
+    private static object AppSetFullscreen(bool on)
+    {
+        try
+        {
+            _form.BeginInvoke((Action)(() =>
+            {
+                try
+                {
+                    if (on == _appFull) return;
+                    if (on)
+                    {
+                        _appFullPrevState = _form.WindowState;
+                        _appFullPrevBounds = _form.WindowState == FormWindowState.Normal
+                            ? _form.Bounds : _form.RestoreBounds;
+                        if (_form.WindowState != FormWindowState.Normal) _form.WindowState = FormWindowState.Normal;
+                        var scr = Screen.FromControl(_form).Bounds;
+                        _form.Bounds = scr;
+                        _appFull = true;
+                    }
+                    else
+                    {
+                        _form.WindowState = FormWindowState.Normal;
+                        if (_appFullPrevBounds.Width > 0 && _appFullPrevBounds.Height > 0)
+                            _form.Bounds = _appFullPrevBounds;
+                        if (_appFullPrevState == FormWindowState.Maximized)
+                            _form.WindowState = FormWindowState.Maximized;
+                        _appFull = false;
+                    }
+                    _form.Activate();
+                    try { _wv.Focus(); } catch { }
+                    Log("fullscreen: " + (on ? "on" : "off") + " bounds=" + _form.Bounds);
+                }
+                catch (Exception ex) { Log("fullscreen EX " + ex.Message); }
+            }));
+
+            if (on == _appFull)
+                return new { ok = true, full = _appFull, bounds = new[] { _form.Left, _form.Top, _form.Width, _form.Height } };
+            return new { ok = true, pending = true, full = on };
         }
         catch (Exception ex) { return new { ok = false, error = ex.Message }; }
     }

@@ -9,7 +9,7 @@
   var el = function (id) { return document.getElementById(id); };
 
   /* 版本号：插件 api.app.version() 读这个 */
-  global.__ireadVersion = global.__ireadVersion || '1.0.0-plugin.1';
+  global.__ireadVersion = global.__ireadVersion || '1.0.1';
 
   /* 转发事件给插件（plugins.js 不在时静默跳过） */
   function pluginEmit(name, payload) {

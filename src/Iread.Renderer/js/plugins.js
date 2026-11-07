@@ -594,6 +594,21 @@
     box.className = 'view plg-view hidden';
     box.id = 'plgView_' + key.replace(':', '_');
     box.setAttribute('data-plg-view', key);
+
+    /* 插件页原本是空 section，插件自己画满整页，于是没有 data-win-drag 区域 ——
+       无边框窗口在插件页里点哪儿都拖不动。这里补一条和 views 一致的顶带：
+       它只是一个可拖动窗口的空条，插件内容放进 .plg-body，
+       插件 render() 清空 body 时不会把顶带一起清掉。 */
+    var grip = document.createElement('div');
+    grip.className = 'plg-grip';
+    grip.setAttribute('data-win-drag', '1');
+    grip.setAttribute('aria-hidden', 'true');
+    box.appendChild(grip);
+
+    var body = document.createElement('div');
+    body.className = 'plg-body';
+    box.appendChild(body);
+
     (document.getElementById('app') || document.body).appendChild(box);
 
     btn.onclick = function () {
@@ -606,6 +621,7 @@
       title: title,
       nav: btn,
       box: box,
+      body: body,
       def: def,
       rec: rec,
       plugin: rec.id
@@ -631,17 +647,17 @@
     var pg = state.pages[key];
     if (!pg) return;
     if (typeof pg.def.render !== 'function') {
-      pg.box.innerHTML = '<div class="plg-view__empty">这个插件页面没有实现 render()</div>';
+      pg.body.innerHTML = '<div class="plg-view__empty">这个插件页面没有实现 render()</div>';
       return;
     }
     try {
-      pg.def.render(pg.box, { api: apiFor(pg.rec), plugin: pg.plugin });
+      pg.def.render(pg.body, { api: apiFor(pg.rec), plugin: pg.plugin });
     } catch (e) {
-      pg.box.innerHTML = '';
+      pg.body.innerHTML = '';
       var err = document.createElement('div');
       err.className = 'plg-view__err';
       err.textContent = '插件页面出错：' + (e && e.message ? e.message : e);
-      pg.box.appendChild(err);
+      pg.body.appendChild(err);
       state.errors.push({ id: pg.plugin, message: 'page ' + key + ': ' + (e && e.message ? e.message : e) });
     }
   }
